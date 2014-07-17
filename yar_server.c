@@ -202,6 +202,10 @@ static int yar_server_start_listening() /* {{{ */ {
 		struct hostent *hptr;
 		struct sockaddr_in *isa;
 		if ((delim = strchr(hostname, ':'))) {
+			if ((delim - hostname) >= sizeof(host)) {
+				alog(YAR_ERROR, "Host name too long");
+				return 0;
+			}
 			memcpy(host, hostname, delim - hostname);
 			host[delim - hostname] = '\0';
 			port = atoi(delim + 1);
