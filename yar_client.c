@@ -54,12 +54,15 @@ static yar_response * yar_client_caller(yar_client *client, char *method, uint n
 	yar_request  *request;
 	yar_header header = {0};
 	yar_payload payload = {0};
+	struct timeval tv;
 	fd_set readfds, writefds;
 
-	struct timeval tv = {.tv_sec = 1, .tv_usec = 0};
-	if(client->timeout > 0){
+	if (client->timeout){
 		tv.tv_sec = client->timeout;
+	} else {
+		tv.tv_sec = 1; /* default 1 second */
 	}
+	tv.tv_usec = 0; 
 
 	request = calloc(1, sizeof(yar_request));
 	request->id = 1000; /* dummy id */
@@ -95,14 +98,15 @@ static yar_response * yar_client_caller(yar_client *client, char *method, uint n
 	bytes_left = payload.size;
 
 write_wait:
-	select_result = select(client->fd + 1, NULL, &writefds, NULL, &tv);
-
-	if (select_result == 0 || select_result == -1) {
-		char *msg = select_result == 0 ? "Select for client timeout failed '%s'":"Select for client fd failed '%s'";
-		alog(YAR_ERROR, msg, strerror(errno));
+	if ((select_result = select(client->fd + 1, NULL, &writefds, NULL, &tv)) == 0) {
+		alog(YAR_ERROR, "Select for client timeout '%s'", strerror(errno));
 		free(payload.data);
 		return NULL;
-	} 
+	} else if (select == -1) {
+		alog(YAR_ERROR, "Select for client failed '%s'", strerror(errno));
+		free(payload.data);
+		return NULL;
+	}
 
 	if (!FD_ISSET(client->fd, &writefds)) {
 		goto write_wait;
@@ -124,7 +128,6 @@ write_wait:
 	} 
 
 	free(payload.data);
-	payload.data = NULL;
 
 	FD_ZERO(&readfds);
 	FD_SET(client->fd, &readfds);
@@ -133,18 +136,17 @@ write_wait:
 	totolly_read = 0;
 
 read_wait:
-	select_result = select(client->fd + 1, &readfds, NULL, NULL, &tv);
-
-	if (select_result == 0 || select_result == -1) {
-		char *msg = select_result == 0 ? "Select for client timeout failed '%s'":"Select for client fd failed '%s'";
-		alog(YAR_ERROR, msg, strerror(errno));
-		if(payload.data){
-			free(payload.data);
-		}
+	if ((select_result = select(client->fd + 1, &readfds, NULL, NULL, &tv)) == 0) {
+		alog(YAR_ERROR, "Select for client timeout '%s'", strerror(errno));
 		yar_response_free(response);
 		free(response);
 		return NULL;
-	} 
+	} else  if (select_result == -1) {
+		alog(YAR_ERROR, "Select for client failed '%s'", strerror(errno));
+		yar_response_free(response);
+		free(response);
+		return NULL;
+	}
 
 	if (!FD_ISSET(client->fd, &readfds)) {
 		goto read_wait;
