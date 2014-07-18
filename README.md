@@ -60,19 +60,7 @@ you can find a example in example folder
 
  基于此, 我们开发了Yar for C, 目的是提供一个方便, 快速, 高性能的, 遵守Yar RPC协议的C服务开发框架.
 
- 代码地址: [https://svn1.intra.sina.com.cn/weibo/platform/libraries/yar/trunk](https://svn1.intra.sina.com.cn/weibo/platform/libraries/yar/trunk)
-
 ## 安装
-
- Yar依赖于libevent和msgpack, 所以, 首先要确保这俩个库安装成功, 一般我们的服务器都提供了libevent, 所以不需要特别设置.
-
- Msgpack的代码包在: [https://svn1.intra.sina.com.cn/weibo/platform/libraries/msgpck](https://svn1.intra.sina.com.cn/weibo/platform/libraries/msgpck)
-
- 如果这俩个库已经安装成功, 那么Yar的安装也很简单, 下载好代码以后, 进入目录执行
-
- ./configure  --with-msgpack=/msgpack的安装路径
-
- make && make install 
 
  当Yar成功安装以后(make install), example目录下有一个简单的例子, 会有助于学习基于Yar的开发.
 
