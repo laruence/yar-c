@@ -15,23 +15,11 @@ make
 
 you can find a example in example folder
 
-## Yar C Framework文档
+## Manual
 
-### 概述
+### Example
 
- 在之前, 我们已经实现了Yar Concurrent RPC framework for PHP, 为PHP提供了一个简单方便的并行化调用RPC的方案.
-
- 在随后的时间里, Yar for PHP已经在主站的PL服务并行化中被应用, 并且经过了近俩个月的线上实际服务验证, 效果已经达到预期.
-
- 在大型Web项目中, PHP和C永远都是最好的搭档, 而我们目前跨语言数据交换并没有一套成型可用的方案.
-
- 虽然开源界类似有Thrift这样的跨语言RPC框架, 但因为它开源, 要兼顾各种平台, 所以实现复杂, 并不适合我们从头使用(无论是学习成本, 或者是后续的维护成本).
-
- 基于此, 我们开发了Yar for C, 目的是提供一个方便, 快速, 高性能的, 遵守Yar RPC协议的C服务开发框架.
-
-### 安装
-
- 当Yar成功安装以后(make install), example目录下有一个简单的例子, 会有助于学习基于Yar的开发.
+ 当Yar成功安装以后, example目录下有一个简单的例子, 会有助于学习基于Yar的开发.
 
 ### 服务端编程API
 
@@ -54,7 +42,7 @@ you can find a example in example folder
 #### yar\_server\_set\_opt
 
 ````
- int yar\_server\_set\_opt(yar\_server\_opt opt, void \*val);
+ int yar_server_set_opt(yar_server_opt opt, void *val);
 ````
 
  设置Server的参数, 可选的参数有:
@@ -233,7 +221,7 @@ void yar_server_shutdown();
 
 关闭Server, 这个会停止accpt新请求, worker会在处理完当前请求以后退出
 
-### yar\_server\_destroy
+#### yar\_server\_destroy
 
 ````
 void yar_server_destroy();
@@ -294,7 +282,7 @@ void yar\_client\_destroy(yar\_client \*client);
 
  Yar采用msgpack作为打包协议, 并且为开发者封装了一系列简单的API来实现对数据的打包解包
 
-### 解包的相关API
+#### 解包的相关API
 
  观察之前的
 
@@ -395,7 +383,7 @@ do {
 
 这样我们的arg就得到了俩个整数参数.
 
-### 打包的相关API
+#### 打包的相关API
 
  当我们获得参数, 并且处理完请求以后, 我们需要返回数据给客户端, 这个时候我们就需要和打包的API打交道了. 他们是:
 
