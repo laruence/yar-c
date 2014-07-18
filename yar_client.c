@@ -55,7 +55,11 @@ static yar_response * yar_client_caller(yar_client *client, char *method, uint n
 	yar_header header = {0};
 	yar_payload payload = {0};
 	fd_set readfds, writefds;
+
 	struct timeval tv = {.tv_sec = 1, .tv_usec = 0};
+	if(client->timeout > 0){
+		tv.tv_sec = client->timeout;
+	}
 
 	request = calloc(1, sizeof(yar_request));
 	request->id = 1000; /* dummy id */
@@ -91,9 +95,11 @@ static yar_response * yar_client_caller(yar_client *client, char *method, uint n
 	bytes_left = payload.size;
 
 write_wait:
-	while ((select_result = select(client->fd + 1, NULL, &writefds, NULL, &tv)) == 0);
-	if (select_result == -1) {
-		alog(YAR_ERROR, "Select for client fd failed '%s'", strerror(errno));
+	select_result = select(client->fd + 1, NULL, &writefds, NULL, &tv);
+
+	if (select_result == 0 || select_result == -1) {
+		char *msg = select_result == 0 ? "Select for client timeout failed '%s'":"Select for client fd failed '%s'";
+		alog(YAR_ERROR, msg, strerror(errno));
 		free(payload.data);
 		return NULL;
 	} 
@@ -118,6 +124,7 @@ write_wait:
 	} 
 
 	free(payload.data);
+	payload.data = NULL;
 
 	FD_ZERO(&readfds);
 	FD_SET(client->fd, &readfds);
@@ -126,10 +133,14 @@ write_wait:
 	totolly_read = 0;
 
 read_wait:
-	while ((select_result = select(client->fd + 1, &readfds, NULL, NULL, &tv)) == 0);
-	if (select_result == -1) {
-		alog(YAR_ERROR, "Select for client fd failed '%s'", strerror(errno));
-		free(payload.data);
+	select_result = select(client->fd + 1, &readfds, NULL, NULL, &tv);
+
+	if (select_result == 0 || select_result == -1) {
+		char *msg = select_result == 0 ? "Select for client timeout failed '%s'":"Select for client fd failed '%s'";
+		alog(YAR_ERROR, msg, strerror(errno));
+		if(payload.data){
+			free(payload.data);
+		}
 		yar_response_free(response);
 		free(response);
 		return NULL;
@@ -301,6 +312,9 @@ int yar_client_set_opt(yar_client *client, yar_client_opt opt, void *val) /* {{{
 		case YAR_PERSISTENT_LINK:
 			client->persistent = *(int *)val;
 		break;
+		case YAR_CONNECT_TIMEOUT:
+			client->timeout = *(int *)val;
+		break;
 		default:
 			return 0;
 	}
@@ -312,6 +326,9 @@ const void * yar_client_get_opt(yar_client *client, yar_client_opt opt) /* {{{ *
 	switch (opt) {
 		case YAR_PERSISTENT_LINK:
 			return &client->persistent;
+		break;
+		case YAR_CONNECT_TIMEOUT:
+			return &client->timeout;
 		break;
 		default:
 			return NULL;

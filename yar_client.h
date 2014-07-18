@@ -29,6 +29,7 @@ struct _yar_client {
 	int fd;
 	char *hostname;
 	int persistent;
+	int timeout;
 	yar_client_call call;
 };
 
