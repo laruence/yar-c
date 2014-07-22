@@ -588,7 +588,7 @@ void yar_server_print_usage(char *argv0) /* {{{ */ {
 	printf( "Usage: %s -S <host>:<port> -n <workers number>\n"
 			"\n"
 			"    -S <host>:<port>  Run yar at host:port\n"
-			"    -n <workers num>  How many wokers\n"
+			"    -n <workers num>  How many workers\n"
 			"    -K <restart|stop> \n"
 			"    -h                help\n",
 			prog );
@@ -762,7 +762,7 @@ int yar_server_run() /* {{{ */ {
 		return 0;
 	}
 
-	alog(YAR_DEBUG, "Attempt to start %d wokers", (server->stand_alone || !server->max_children)? 1 : server->max_children);
+	alog(YAR_DEBUG, "Attempt to start %d workers", (server->stand_alone || !server->max_children)? 1 : server->max_children);
 	if (!server->stand_alone && !yar_server_start_daemon()) {
 		alog(YAR_ERROR, "Failed to setup daemon");
 		return 0;
