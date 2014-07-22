@@ -7,7 +7,7 @@
 ## Install
 
 ````
-./configure --with-msgpack=/path-to-msgpack --with-libevent=/path-to-libevent
+./configure --with-msgpack=/path-to-msgpack --with-event=/path-to-libevent
 make 
 `````
 
@@ -114,7 +114,7 @@ Yar server会prefork一些子进程, 这个hook容许我们在yar server prefork
 
 ##### YAR\_CHILD\_INIT
 
- 同上, 不过是woker进程初始化的时候被调用. 函数原型也和parent init一样. 也支持自定义数据.
+ 同上, 不过是worker进程初始化的时候被调用. 函数原型也和parent init一样. 也支持自定义数据.
 
 ##### YAR\_CHILD\_USER & YAR\_CHILD\_GROUP
 
