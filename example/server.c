@@ -41,7 +41,7 @@ void yar_handler_example(yar_request *request, yar_response *response, void *coo
 	/* third element */ 
 	{
 		/* key */
-		yar_pack_push_string(packager, "data", 5);
+		yar_pack_push_string(packager, "data", 4);
 		/* value */
 		yar_pack_push_array(packager, 3);
 		/* array start */
