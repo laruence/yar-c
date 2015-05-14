@@ -102,7 +102,7 @@ write_wait:
 		alog(YAR_ERROR, "Select for client timeout '%s'", strerror(errno));
 		free(payload.data);
 		return NULL;
-	} else if (select == -1) {
+	} else if (select_result == -1) {
 		alog(YAR_ERROR, "Select for client failed '%s'", strerror(errno));
 		free(payload.data);
 		return NULL;

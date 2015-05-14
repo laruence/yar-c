@@ -11,6 +11,7 @@
 #include <string.h>
 #include <getopt.h> 	/* for getopt */
 #include <stdlib.h>
+#include <sys/types.h>
 
 #include "yar.h"
 #include "msgpack.h"

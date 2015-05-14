@@ -37,7 +37,7 @@
 #include <pwd.h>        /* for getpwnam */
 #include <grp.h>        /* for getgrnam */
 #include <arpa/inet.h> 	/* for inet_ntop */
-
+#include <signal.h>
 #include "event.h" 		/* for libevent */
 
 #include "yar_common.h"
@@ -756,9 +756,9 @@ int yar_server_run() /* {{{ */ {
 		return 0;
 	}
 
-	if (!yar_server_start_listening(server)) {
+	if (!yar_server_start_listening()) {
 		alog(YAR_ERROR, "Failed to setup server at %s", server->hostname);
-		yar_server_destroy(server);
+		yar_server_destroy();
 		return 0;
 	}
 
@@ -769,7 +769,7 @@ int yar_server_run() /* {{{ */ {
 	}
 
 	server->running = 1;
-	if (!yar_server_startup_workers(server)) {
+	if (!yar_server_startup_workers()) {
 		/* master */
 		pid_t cid;
 		int stat;
@@ -796,7 +796,7 @@ int yar_server_run() /* {{{ */ {
 			}
 		}
 
-		yar_server_destroy(server);
+		yar_server_destroy();
 	} else {
 		/* slavers */
 		struct event ev_accept;
@@ -809,7 +809,7 @@ worker:
 			event_dispatch();
 		}
 		/* server has been shutdown */
-		yar_server_destroy(server);
+		yar_server_destroy();
 	}
 	return 1;
 }

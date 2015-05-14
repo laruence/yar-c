@@ -12,6 +12,7 @@
 #include <getopt.h> 	/* for getopt */
 #include <assert.h>     /* for assert */
 #include <stdlib.h>
+#include <sys/types.h>
 
 #include "yar.h"
 #include "msgpack.h" 
