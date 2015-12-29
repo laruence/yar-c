@@ -19,6 +19,10 @@
 #ifndef YAR_PACK_H
 #define YAR_PACK_H
 
+#ifndef ulong
+#define ulong unsigned long
+#endif
+
 typedef enum _yar_data_type {
 	YAR_DATA_NULL = 1,
 	YAR_DATA_BOOL,

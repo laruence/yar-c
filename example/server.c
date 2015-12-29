@@ -12,6 +12,7 @@
 #include <getopt.h> 	/* for getopt */
 #include <assert.h>     /* for assert */
 #include <stdlib.h>
+#include <sys/types.h>
 
 #include "yar.h"
 #include "msgpack.h" 
@@ -41,7 +42,7 @@ void yar_handler_example(yar_request *request, yar_response *response, void *coo
 	/* third element */ 
 	{
 		/* key */
-		yar_pack_push_string(packager, "data", 5);
+		yar_pack_push_string(packager, "data", 4);
 		/* value */
 		yar_pack_push_array(packager, 3);
 		/* array start */

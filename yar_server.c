@@ -37,7 +37,7 @@
 #include <pwd.h>        /* for getpwnam */
 #include <grp.h>        /* for getgrnam */
 #include <arpa/inet.h> 	/* for inet_ntop */
-
+#include <signal.h>
 #include "event.h" 		/* for libevent */
 
 #include "yar_common.h"
@@ -164,11 +164,15 @@ static int yar_server_start_daemon(void) /* {{{ */ {
 /* }}} */
 
 static int yar_check_previous_run(char *pfile) /* {{{ */ {
-	FILE *fp;
 	if (access(pfile, F_OK) == 0) {
 		alog(YAR_ERROR, "There is already a yar_sever run, pid '%s'", pfile);
 		return 0;
 	}
+	return 1;
+} /* }}} */
+
+static int yar_record_pid(char *pfile) /* {{{ */ {
+	FILE *fp;
 	fp = fopen(pfile, "w+");
 	if (!fp) {
 		alog(YAR_ERROR, "Failed to write pid file '%s'", strerror(errno));
@@ -317,6 +321,10 @@ static void yar_server_parent_init() /* {{{ */ {
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGQUIT, &act, NULL);
+
+	if (server->pid_file) {
+		yar_record_pid(server->pid_file);
+	}
 
 	server->ppid = getpid();
 	if (server->parent_init) {
@@ -554,7 +562,7 @@ static void yar_server_on_accept(int fd, short ev, void *arg) /* {{{ */ {
 	}
 
 	ctx = calloc(1, sizeof(yar_request_context) + sizeof(yar_request) + sizeof(yar_response));
-	if (!yar_set_non_blocking(fd)) {
+	if (!yar_set_non_blocking(client_fd)) {
 		alog(YAR_WARNING, "Setting non-block mode failed '%s'", strerror(errno));
 		free(ctx);
 		close(client_fd);
@@ -756,9 +764,9 @@ int yar_server_run() /* {{{ */ {
 		return 0;
 	}
 
-	if (!yar_server_start_listening(server)) {
+	if (!yar_server_start_listening()) {
 		alog(YAR_ERROR, "Failed to setup server at %s", server->hostname);
-		yar_server_destroy(server);
+		yar_server_destroy();
 		return 0;
 	}
 
@@ -769,7 +777,7 @@ int yar_server_run() /* {{{ */ {
 	}
 
 	server->running = 1;
-	if (!yar_server_startup_workers(server)) {
+	if (!yar_server_startup_workers()) {
 		/* master */
 		pid_t cid;
 		int stat;
@@ -796,7 +804,7 @@ int yar_server_run() /* {{{ */ {
 			}
 		}
 
-		yar_server_destroy(server);
+		yar_server_destroy();
 	} else {
 		/* slavers */
 		struct event ev_accept;
@@ -809,7 +817,7 @@ worker:
 			event_dispatch();
 		}
 		/* server has been shutdown */
-		yar_server_destroy(server);
+		yar_server_destroy();
 	}
 	return 1;
 }

@@ -19,13 +19,7 @@
 #ifndef YAR_H
 #define YAR_H
 
-#define YAR_VERSION "1.0.2-dev"
-
-typedef struct _yar_payload {
-	char *data;
-	uint size;
-} yar_payload;
-
+#include "yar_common.h"
 #include "yar_log.h"
 #include "yar_pack.h"
 #include "yar_response.h"

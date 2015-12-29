@@ -342,7 +342,7 @@ map {'k' => 'v'},
 uint size = 0;
 
 if (yar_unpack_data_type(request->in, &size) != YAR_DATA_ARRAY || size != 3) {  
-	yar_response_set_error(response, "参数检查失败, 只接受3个参数");
+	yar_response_set_error(response, YAR_ERROR, "参数检查失败, 只接受3个参数");
   	return ;
 }
 ````
@@ -366,9 +366,9 @@ do {
 
  tmp = yar_unpack_iterator_current(it);
 
- if (yar_unpack_data_type(tmp, &dummy) != YAR_DATA_LOG) {
+ if (yar_unpack_data_type(tmp, &dummy) != YAR_DATA_LONG) {
 
-  yar_response_set_error(response, "参数检查失败, 只接受整数");
+  yar_response_set_error(response, YAR_ERROR, "参数检查失败, 只接受整数");
 
   return ;
 
