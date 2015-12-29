@@ -129,17 +129,6 @@ int yar_pack_push_string(yar_packager *packager, char *str, uint len) /* {{{ */ 
 	int ret;
 	msgpack_packer *pk = packager->pk;
 
-#if defined(MSGPACK_OBJECT_RAW)
-	ret = msgpack_pack_raw(pk, len);
-
-	if (ret < 0) {
-		return 0;
-	}
-	
-	if (msgpack_pack_raw_body(pk, str, len) < 0) {
-		return 0;
-	}
-#else
 	ret = msgpack_pack_str(pk, len);
 
 	if (ret < 0) {
@@ -149,7 +138,6 @@ int yar_pack_push_string(yar_packager *packager, char *str, uint len) /* {{{ */ 
 	if (msgpack_pack_str_body(pk, str, len) < 0) {
 		return 0;
 	}
-#endif
 
 	return 1;
 }
@@ -220,22 +208,11 @@ yar_data_type yar_unpack_data_type(const yar_data *data, uint *size) /* {{{ */ {
 			return YAR_DATA_ULONG;
 		case MSGPACK_OBJECT_NEGATIVE_INTEGER:
 			return YAR_DATA_LONG;
-#if defined(MSGPACK_USE_LEGACY_NAME_AS_FLOAT)
-		case MSGPACK_OBJECT_DOUBLE:
-			return YAR_DATA_DOUBLE;
-#else
 		case MSGPACK_OBJECT_FLOAT:
 			return YAR_DATA_DOUBLE;
-#endif
-#if defined(MSGPACK_USE_LEGACY_NAME_AS_FLOAT)
-		case MSGPACK_OBJECT_RAW:
-			*size = obj->via.raw.size;
-			return YAR_DATA_STRING;
-#else
 		case MSGPACK_OBJECT_STR:
 			*size = obj->via.str.size;
 			return YAR_DATA_STRING;
-#endif
 		case MSGPACK_OBJECT_ARRAY:
 			*size = obj->via.array.size;
 			return YAR_DATA_ARRAY;
@@ -263,21 +240,11 @@ int yar_unpack_data_value(const yar_data *data, void *arg) /* {{{ */ {
 		case MSGPACK_OBJECT_NEGATIVE_INTEGER:
 			*(long *)arg = obj->via.i64;
 			return YAR_DATA_LONG;
-#if defined(MSGPACK_USE_LEGACY_NAME_AS_FLOAT)
-		case MSGPACK_OBJECT_DOUBLE:
-			*(double *)arg = obj->via.dec;
-#else
 		case MSGPACK_OBJECT_FLOAT:
-#endif
 			*(double *)arg = obj->via.f64;
 			return YAR_DATA_DOUBLE;
-#if defined(MSGPACK_USE_LEGACY_NAME_AS_FLOAT)
-		case MSGPACK_OBJECT_RAW:
-			*(const char **)arg = obj->via.raw.ptr;
-#else
 		case MSGPACK_OBJECT_STR:
 			*(const char **)arg = obj->via.str.ptr;
-#endif
 			return YAR_DATA_STRING;
 		case MSGPACK_OBJECT_ARRAY:
 			*(const yar_data **)arg = (yar_data *)obj->via.array.ptr;
