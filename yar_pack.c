@@ -223,15 +223,15 @@ yar_data_type yar_unpack_data_type(const yar_data *data, uint *size) /* {{{ */ {
 #if defined(MSGPACK_USE_LEGACY_NAME_AS_FLOAT)
 		case MSGPACK_OBJECT_DOUBLE:
 			return YAR_DATA_DOUBLE;
-#elif defined(MSGPACK_OBJECT_FLOAT)
+#else
 		case MSGPACK_OBJECT_FLOAT:
 			return YAR_DATA_DOUBLE;
 #endif
-#if defined(MSGPACK_OBJECT_RAW)
+#if defined(MSGPACK_USE_LEGACY_NAME_AS_FLOAT)
 		case MSGPACK_OBJECT_RAW:
 			*size = obj->via.raw.size;
 			return YAR_DATA_STRING;
-#elif defined(MSGPACK_OBJECT_STR)
+#else
 		case MSGPACK_OBJECT_STR:
 			*size = obj->via.str.size;
 			return YAR_DATA_STRING;
@@ -266,15 +266,15 @@ int yar_unpack_data_value(const yar_data *data, void *arg) /* {{{ */ {
 #if defined(MSGPACK_USE_LEGACY_NAME_AS_FLOAT)
 		case MSGPACK_OBJECT_DOUBLE:
 			*(double *)arg = obj->via.dec;
-#elif defined(MSGPACK_OBJECT_FLOAT)
+#else
 		case MSGPACK_OBJECT_FLOAT:
 #endif
 			*(double *)arg = obj->via.f64;
 			return YAR_DATA_DOUBLE;
-#if defined(MSGPACK_OBJECT_RAW)
+#if defined(MSGPACK_USE_LEGACY_NAME_AS_FLOAT)
 		case MSGPACK_OBJECT_RAW:
 			*(const char **)arg = obj->via.raw.ptr;
-#elif defined(MSGPACK_OBJECT_STR)
+#else
 		case MSGPACK_OBJECT_STR:
 			*(const char **)arg = obj->via.str.ptr;
 #endif
