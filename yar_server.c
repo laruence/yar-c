@@ -164,11 +164,15 @@ static int yar_server_start_daemon(void) /* {{{ */ {
 /* }}} */
 
 static int yar_check_previous_run(char *pfile) /* {{{ */ {
-	FILE *fp;
 	if (access(pfile, F_OK) == 0) {
 		alog(YAR_ERROR, "There is already a yar_sever run, pid '%s'", pfile);
 		return 0;
 	}
+	return 1;
+} /* }}} */
+
+static int yar_record_pid(char *pfile) /* {{{ */ {
+	FILE *fp;
 	fp = fopen(pfile, "w+");
 	if (!fp) {
 		alog(YAR_ERROR, "Failed to write pid file '%s'", strerror(errno));
@@ -317,6 +321,10 @@ static void yar_server_parent_init() /* {{{ */ {
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGQUIT, &act, NULL);
+
+	if (server->pid_file) {
+		yar_record_pid(server->pid_file);
+	}
 
 	server->ppid = getpid();
 	if (server->parent_init) {
@@ -554,7 +562,7 @@ static void yar_server_on_accept(int fd, short ev, void *arg) /* {{{ */ {
 	}
 
 	ctx = calloc(1, sizeof(yar_request_context) + sizeof(yar_request) + sizeof(yar_response));
-	if (!yar_set_non_blocking(fd)) {
+	if (!yar_set_non_blocking(client_fd)) {
 		alog(YAR_WARNING, "Setting non-block mode failed '%s'", strerror(errno));
 		free(ctx);
 		close(client_fd);
