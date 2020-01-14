@@ -340,7 +340,7 @@ map {'k' => 'v'},
 现在我们就知道怎么检查参数个数了吧, 假设我们的例子只接受3个参数
 
 ````c
-size_t size = 0;
+uint size = 0;
 
 if (yar_unpack_data_type(request->in, &size) != YAR_DATA_ARRAY || size != 3) {  
 	yar_response_set_error(response, YAR_ERROR, "参数检查失败, 只接受3个参数");
