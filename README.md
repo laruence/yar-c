@@ -157,8 +157,8 @@ void * yar_server_get_opt(yar_server_opt opt);
 
 #### yar\_server\_register\_handler
 
-````
-int yar\_server\_register\_handler(yar\_server\_handler \*handlers);
+````c
+int yar_server_register_handler(yar_server_handler *handlers);
 ````
 
 注册一个服务函数, 服务函数的原型是:
