@@ -3,7 +3,7 @@
 (see also: [Yar PHP framework](https://github.com/laruence/yar), [Yar Java framework](https://github.com/weibocom/yar-java))
 ## Requirement
 - libevent
-- msgpack
+- [msgpack](https://github.com/msgpack/msgpack-c)
 
 ## Install
 
