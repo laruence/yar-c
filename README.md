@@ -28,7 +28,7 @@ you can find a example in example folder
 
 #### yar\_server\_init
 
-````
+````c
  int yar_server_init(char *hostname);
 ````
 
@@ -42,13 +42,13 @@ you can find a example in example folder
 
 #### yar\_server\_set\_opt
 
-````
+````c
  int yar_server_set_opt(yar_server_opt opt, void *val);
 ````
 
  设置Server的参数, 可选的参数有:
 
-````
+````c
 typedef enum _yar_server_opt {
 
   YAR_STAND_ALONE,  //是否单例启动, 一般用作调试的时候, 不会fork worker
@@ -80,7 +80,7 @@ typedef enum _yar_server_opt {
 
 对于不同的选项, val应该是选项的一级指针, 比如, 设置timeout
 
-````
+````c
  #include "yar.h"
 
  Int timeout = 5;
@@ -163,13 +163,13 @@ int yar\_server\_register\_handler(yar\_server\_handler \*handlers);
 
 注册一个服务函数, 服务函数的原型是:
 
-````
+````c
 typedef void (*yar_handler) (yar_request *request, yar_response *response, void *data);
 ````
 
 而, yar\_server\_handler的定义是:
 
-````
+````c
 typedef struct _yar_server_handler {
 
   char *name;
@@ -183,7 +183,7 @@ typedef struct _yar_server_handler {
 
 其中name就是RPC调用的时候的方法名, 比如:
 
-````
+````c
 yar_server_handler example_handlers[] = {
 
   {"default", sizeof("default") - 1, yar_handler_example},
@@ -195,7 +195,7 @@ yar_server_handler example_handlers[] = {
 
 那么当客户端的RPC请求default方法的时候, yar\_handler\_example就会被调用, 去处理这个请求. 以PHP客户端为例:
 
-````
+````php
 <?php
    $yar = new Yar_Client(“tcp://127.0.0.1”);
    $yar->default($args); // yar_handler_example会处理该请求
@@ -206,7 +206,7 @@ yar_server_handler example_handlers[] = {
 
 #### yar\_server\_run
 
-````
+````c
 int yar_server_run();
 ````
 
@@ -216,7 +216,7 @@ int yar_server_run();
 
 #### yar\_server\_shutdown
 
-````
+````c
 void yar_server_shutdown();
 ````
 
@@ -224,7 +224,7 @@ void yar_server_shutdown();
 
 #### yar\_server\_destroy
 
-````
+````c
 void yar_server_destroy();
 ````
 
@@ -236,7 +236,7 @@ void yar_server_destroy();
 
 #### yar\_client\_init
 
-````
+````c
 yar_client * yar_client_init(char *hostname);
 ````
 
@@ -244,7 +244,7 @@ yar_client * yar_client_init(char *hostname);
 
 成功返回Yar\_Client实例:
 
-````
+````c
 struct _yar_client {
 
   int fd;
@@ -258,13 +258,13 @@ struct _yar_client {
 
 一般的, 我们不用关心这个结构体的内容, 只需要关心yar\_client\_call的原型:
 
-````
+````c
 typedef yar_response * (*yar_client_call)(yar_client *client, char *method, uint num_args, yar_packager *packager[]);
 ````
 
 也就是说, 当得到一个Client实例以后, 我们就可以对Server发起调用, 比如我们调用Server的default方法, 并且有2个参数, 那么就类似
 
-````
+````c
 yar_client *client = yar_client_init("tcp://localhost:2222");
 yar_response *response = client->call(client, "default", 2, args);
 ````
@@ -273,7 +273,7 @@ yar_response *response = client->call(client, "default", 2, args);
 
 #### yar\_client\_destroy
 
-````
+````c
 void yar\_client\_destroy(yar\_client \*client);
 ````
 
@@ -287,7 +287,7 @@ void yar\_client\_destroy(yar\_client \*client);
 
  观察之前的
 
-````
+````c
 typedef void (*yar_handler) (yar_request *request, yar_response *response, void *data),
 ````
 
@@ -301,13 +301,13 @@ typedef void (*yar_handler) (yar_request *request, yar_response *response, void 
 
  于是, 如果我要检查当前的参数个数, 那么就调用:
 
-````
+````c
 yar_data_type yar_unpack_data_type(const yar_data *data, uint *size);
 ````
 
 其中, yar\_data\_type是一个unum, 可选值是:
 
-````
+````c
 typedef enum _yar_data_type {
 
   YAR_DATA_NULL = 1,
@@ -339,8 +339,8 @@ map {'k' => 'v'},
 
 现在我们就知道怎么检查参数个数了吧, 假设我们的例子只接受3个参数
 
-````
-uint size = 0;
+````c
+size_t size = 0;
 
 if (yar_unpack_data_type(request->in, &size) != YAR_DATA_ARRAY || size != 3) {  
 	yar_response_set_error(response, YAR_ERROR, "参数检查失败, 只接受3个参数");
@@ -352,7 +352,7 @@ if (yar_unpack_data_type(request->in, &size) != YAR_DATA_ARRAY || size != 3) {
 
 那么就通过如下形式获得相关参数内容:
 
-````
+````c
 uint arg[2], dummy;
 
 yar_data *tmp;
@@ -388,7 +388,7 @@ do {
 
  当我们获得参数, 并且处理完请求以后, 我们需要返回数据给客户端, 这个时候我们就需要和打包的API打交道了. 他们是:
 
-````
+````c
 int yar_pack_push_array(yar_packager *packager, uint size);
 
 int yar_pack_push_map(yar_packager *packager, uint size);
@@ -427,7 +427,7 @@ void yar_pack_free(yar_packager *packager);
 
 那么打包的过程就是:
 
-````
+````c
 yar_packager *pk = yar_pack_start_map( 2); //我们是一个2个kv的MAP
 
 yar_pack_push_string(pk, "a", 1); //压入第一个key, a
