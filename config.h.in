@@ -27,8 +27,8 @@
 /* Define to 1 if you have the `event' library (-levent). */
 #undef HAVE_LIBEVENT
 
-/* Define to 1 if you have the `msgpack' library (-lmsgpack). */
-#undef HAVE_LIBMSGPACK
+/* Define to 1 if you have the `msgpackc' library (-lmsgpackc). */
+#undef HAVE_LIBMSGPACKC
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
@@ -113,6 +113,9 @@
 
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION

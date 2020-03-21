@@ -79,7 +79,7 @@ else
    AC_MSG_RESULT([found in $MSGPACK_DIR])
 fi
 
-AC_CHECK_LIB([msgpack], [msgpack_unpacker_init], [], [ AC_MSG_ERROR([check for msgpack_sbuffer_new in msgpack failed]) ])
+AC_CHECK_LIB([msgpackc], [msgpack_unpacker_init], [], [ AC_MSG_ERROR([check for msgpack_uppacker_init in msgpack failed]) ])
 
 # Checks for header files.
 AC_HEADER_STDC
