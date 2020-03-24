@@ -31,7 +31,7 @@ else
     if test -r $EVENT_DIR"/include/event.h"; then
         EVENT_HEADER=$EVENT_DIR"/include/"
         EVENT_LIBRARY=$EVENT_DIR"/lib/"
-        INCLUDES=" -I${EVENT_HEADER}"
+        CFLAGS=$CFLAGS" -I${EVENT_HEADER}"
         LDFLAGS=$LDFLAGS" -Wl,-rpath,${EVENT_LIBRARY} -L${EVENT_LIBRARY}"
         break
     else 
@@ -59,14 +59,16 @@ if test $MSGPACK_DIR == "no"; then
             MSGPACK_DIR=$i
             MSGPACK_HEADER=$i"/include/"
             MSGPACK_LIBRARY=$i"/lib/"
-            break
+			CFLAGS=$CFLAGS" -I${MSGPACK_HEADER}"
+			LDFLAGS=$LDFLAGS" -Wl,-rpath,${MSGPACK_LIBRARY} -L${MSGPACK_LIBRARY}"
+			break
         fi
     done
 else
     if test -r $MSGPACK_DIR"/include/msgpack.h"; then
         MSGPACK_HEADER=$MSGPACK_DIR"/include/"
         MSGPACK_LIBRARY=$MSGPACK_DIR"/lib/"
-        INCLUDES=$INCLUDES" -I${MSGPACK_HEADER}"
+        CFLAGS=$CFLAGS" -I${MSGPACK_HEADER}"
         LDFLAGS=$LDFLAGS" -Wl,-rpath,${MSGPACK_LIBRARY} -L${MSGPACK_LIBRARY}"
     else 
         AC_MSG_ERROR([could not find msgpack in '$MSGPACK_DIR'])
@@ -98,7 +100,6 @@ AC_TYPE_SIGNAL
 AC_CHECK_FUNCS([bzero gethostbyname inet_ntoa select socket strchr strdup strerror strncasecmp strrchr])
 
 AC_SUBST(CFLAGS)
-AC_SUBST(INCLUDES)
 
 AC_CONFIG_FILES([Makefile example/Makefile])
 AC_OUTPUT

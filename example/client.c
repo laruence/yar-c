@@ -76,6 +76,9 @@ int main(int argc, char **argv) {
 				output_response(response);
 				yar_response_free(response);
 				free(response);
+			} else {
+				printf( "No response\n" );
+				return 1;
 			}
 		}
 		yar_client_destroy(client);

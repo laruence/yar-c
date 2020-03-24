@@ -1,4 +1,4 @@
-AUTOMAKE_OPTIONS=gnu
+AUTOMAKE_OPTIONS=foreign
 lib_LTLIBRARIES=libyar.la
 libyar_la_SOURCES=yar_server.c yar_client.c yar_response.c yar_request.c yar_pack.c yar_protocol.c yar_log.c
 libyar_la_LDFLAGS=-levent -lmsgpackc
