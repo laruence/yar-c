@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.59)
-AC_INIT(yar, 1.0.0, laruence@gmail.com)
+AC_INIT(yar-c, 1.0.0, laruence@gmail.com)
 
 AC_CONFIG_SRCDIR([yar_server.c])
 AC_CONFIG_HEADER([config.h])
@@ -45,7 +45,7 @@ else
    AC_MSG_RESULT([found in $EVENT_DIR])
 fi
 
-AC_CHECK_LIB([event], [event_set], [], [AC_MSG_ERROR([Could not find msgpack library])])
+AC_CHECK_LIB([event], [event_set], [], [AC_MSG_ERROR([Could not find event library])])
 
 AC_MSG_CHECKING(for msgpack)
 AC_ARG_WITH(msgpack,
@@ -99,11 +99,8 @@ AC_FUNC_SELECT_ARGTYPES
 AC_TYPE_SIGNAL
 AC_CHECK_FUNCS([bzero gethostbyname inet_ntoa select socket strchr strdup strerror strncasecmp strrchr])
 
-CXXFLAGS=$CFLAGS
-
-AC_SUBST(CXXFLAGS)
 AC_SUBST(CFLAGS)
 AC_SUBST(INCLUDES)
 
-AC_CONFIG_FILES([Makefile example/Makefile])
+#AC_CONFIG_FILES([Makefile example/Makefile])
 AC_OUTPUT
