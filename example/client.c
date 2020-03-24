@@ -47,7 +47,26 @@ void output_response(yar_response *response) {
 
 int main(int argc, char **argv) {
 	int persistent = 1;
-	yar_client *client = yar_client_init("127.0.0.1:8888");
+	int opt;
+	char *hostname = NULL;
+	int standalone = 0;
+	yar_client *client;
+
+	while ((opt = getopt(argc, argv, "h:")) != -1) {
+		switch (opt) {
+			case 'h':
+				hostname = optarg;
+			break;
+			default:
+			printf( "Usage: %s -h <host>:<port> \n", argv[0]);
+			break;
+		}
+	}
+	if (!hostname) {
+		printf( "Usage: %s -h <host>:<port> \n", argv[0]);
+		return 0;
+	}
+	client = yar_client_init(hostname);
 	if (client) {
 		int i = 0;
 		yar_client_set_opt(client, YAR_PERSISTENT_LINK, &persistent);

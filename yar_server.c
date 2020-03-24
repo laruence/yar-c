@@ -147,7 +147,10 @@ static int yar_server_start_daemon(void) /* {{{ */ {
 	}
 
 	umask(0);
-	chdir("/");
+	if (chdir("/") < 0) {
+		/* nothing */
+	}
+
 	for (i=0; i < 3; i++) {
 		close(i);
 	}
@@ -729,7 +732,7 @@ int yar_server_register_handler(yar_server_handler *handlers) /* {{{ */ {
 } 
 /* }}} */
 
-void yar_server_shutdown(signo) /* {{{ */ {
+void yar_server_shutdown(int signo) /* {{{ */ {
 	(void)signo;
 
 	server->running = 0;
@@ -797,7 +800,7 @@ int yar_server_run() /* {{{ */ {
 		signal(SIGQUIT, SIG_IGN);
 		kill(-(server->ppid), SIGQUIT);
 
-		while(server->running_children) {
+		while (server->running_children) {
 			while ((cid = waitpid(-1, &stat, 0)) > 0) {
 				server->running_children--;
 				alog(YAR_DEBUG, "Child %d shutdown with status %d", cid, stat);

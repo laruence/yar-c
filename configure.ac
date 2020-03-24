@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.59)
-AC_INIT(yar-c, 1.0.0, laruence@gmail.com)
+AC_INIT(yar-c, 1.1.0, laruence@gmail.com)
 
 AC_CONFIG_SRCDIR([yar_server.c])
 AC_CONFIG_HEADER([config.h])
@@ -93,8 +93,6 @@ AC_HEADER_TIME
 
 # Checks for library functions.
 AC_FUNC_FORK
-#comment out malloc check due to http://wiki.buici.com/xwiki/bin/view/Programing+C+and+C%2B%2B/Autoconf+and+RPL_MALLOC
-#AC_FUNC_MALLOC
 AC_FUNC_SELECT_ARGTYPES
 AC_TYPE_SIGNAL
 AC_CHECK_FUNCS([bzero gethostbyname inet_ntoa select socket strchr strdup strerror strncasecmp strrchr])
@@ -102,5 +100,5 @@ AC_CHECK_FUNCS([bzero gethostbyname inet_ntoa select socket strchr strdup strerr
 AC_SUBST(CFLAGS)
 AC_SUBST(INCLUDES)
 
-#AC_CONFIG_FILES([Makefile example/Makefile])
+AC_CONFIG_FILES([Makefile example/Makefile])
 AC_OUTPUT
