@@ -1,11 +1,20 @@
+git:
+  quiet: true
+
+dist: xenial
 language: c
+sudo: required
+addons:
+  apt:
+    packages:
+      - cmake
+      - libevent-dev
+
 
 cache:
     apt: true
-    ccache: true
 
 before_script:
-    - sudo apt-get -y install libevent-dev cmake
     - wget https://github.com/msgpack/msgpack-c/releases/download/cpp-3.2.0/msgpack-3.2.0.tar.gz
     - tar xzf msgpack-3.2.0.tar.gz
     - cd msgpack-3.2.0
@@ -13,7 +22,9 @@ before_script:
     - make
     - sudo make install
     - cd ..
-      
+    - pecl install msgpack
+    - echo yes | pecl install yar
+
 script:
     - ./configure
     - make
@@ -22,4 +33,4 @@ after_script:
     - cd example 
     - make 
     - ./yar_server -S 127.0.0.1:9999
-    - ./yar_client -h 127.0.0.1:9999
+    - ./yar_client -h 127.0.0.1:9999 && php -dyar.packager=msgpack client.php 127.0.0.1:9999
