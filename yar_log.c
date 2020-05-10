@@ -49,7 +49,7 @@ int yar_logger_init(const char *path, int level) /* {{{ */ {
 		}
 		if (!lg->fp) {
 			free(lg);
-			alog(YAR_ERROR, "Failed to start lg '%s'", strerror(errno));
+			alog(YAR_ERROR, "Failed to start log '%s'", strerror(errno));
 			return 0;
 		}
 	}
@@ -82,6 +82,7 @@ void yar_logger_destroy() /* {{{ */ {
 		} else {
 			fclose(logger->fp);
 		}
+	} else {
 	}
 	free(logger);
 	logger = NULL;

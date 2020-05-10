@@ -561,6 +561,7 @@ static void yar_server_on_accept(int fd, short ev, void *arg) /* {{{ */ {
 	client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
 
 	if (client_fd == -1) {
+		alog(YAR_WARNING, "Thundering herd");
 		return;
 	}
 

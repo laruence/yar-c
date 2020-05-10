@@ -236,7 +236,7 @@ yar_client * yar_client_init(char *hostname) /* {{{ */ {
 		/* unix domain socket */
 		struct sockaddr_un *usa;
 		usa = (struct sockaddr_un *)&sa;
-		if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0) == -1)) {
+		if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
 			alog(YAR_ERROR, "Failed to create a socket '%s'", strerror(errno));
 			free(client);
 			return NULL;

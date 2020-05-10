@@ -51,14 +51,18 @@ int main(int argc, char **argv) {
 	char *hostname = NULL;
 	int standalone = 0;
 	yar_client *client;
+	int number_calls = 10;
 
-	while ((opt = getopt(argc, argv, "h:")) != -1) {
+	while ((opt = getopt(argc, argv, "h:n:")) != -1) {
 		switch (opt) {
 			case 'h':
 				hostname = optarg;
 			break;
+			case 'n':
+				number_calls = atoi(optarg);
+			break;
 			default:
-			printf( "Usage: %s -h <host>:<port> \n", argv[0]);
+			printf( "Usage: %s -h <host>:<port> -n <number calls> \n", argv[0]);
 			break;
 		}
 	}
@@ -70,7 +74,7 @@ int main(int argc, char **argv) {
 	if (client) {
 		int i = 0;
 		yar_client_set_opt(client, YAR_PERSISTENT_LINK, &persistent);
-		while (i++ < 10) {
+		while (i++ < number_calls) {
 			yar_response *response = client->call(client, "default", 0, NULL);
 			if (response) {
 				output_response(response);
