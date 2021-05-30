@@ -186,7 +186,7 @@ read_wait:
 		}
 
 		do {
-			bytes_read = recv(client->fd, response->payload.data + bytes_read, response->payload.size - bytes_read, 0);
+			bytes_read = recv(client->fd, response->payload.data + totolly_read, response->payload.size - totolly_read, 0);
 		} while (bytes_read == -1 && errno == EINTR);
 
 		if (bytes_read == 0) {
