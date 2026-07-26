@@ -1,7 +1,7 @@
 # Yar C Framework
 [![Build Status](https://secure.travis-ci.org/laruence/yar-c.png)](https://travis-ci.org/laruence/yar-c)
 
-(see also: [Yar PHP framework](https://github.com/laruence/yar), [Yar Java framework](https://github.com/weibocom/yar-java))
+(see also: [Yar PHP framework](https://github.com/laruence/yar), [Yar Java framework](https://github.com/weibocom/yar-java), [Lua Yar framework](https://github.com/fangfengxiang/lua-yar))
 ## Requirement
 - libevent
 - [msgpack](https://github.com/msgpack/msgpack-c)
