@@ -1,4 +1,4 @@
-[# Yar C Framework
+# Yar C Framework
 
 [![Build Status](https://secure.travis-ci.org/laruence/yar-c.png)](https://travis-ci.org/laruence/yar-c)
 
