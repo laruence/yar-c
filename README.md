@@ -28,11 +28,11 @@ An example server and client can be found in the `example/` directory.
 
 Once Yar C is installed, check the `example/` directory for a simple demonstration of building an RPC service with Yar.
 
-### Server API
+## Server API
 
 If you want to build a C server with Yar, `Yar_Server` is the API to focus on. Yar C (hereafter just "Yar") is built on libevent and msgpack. It provides daemonisation, pre-fork, socket management, logging, and pack/unpack — common building blocks for an RPC server.
 
-#### yar_server_init
+### yar_server_init
 
 ```c
 int yar_server_init(char *hostname);
@@ -46,7 +46,15 @@ Returns `1` on success, `0` on failure.
 
 Note: no server instance handle is returned — a process can only hold a single server instance.
 
-#### yar_server_set_opt
+### yar_server_print_usage
+
+```c
+void yar_server_print_usage(char *argv0);
+```
+
+Prints command-line usage information to stderr.
+
+### yar_server_set_opt
 
 ```c
 int yar_server_set_opt(yar_server_opt opt, void *val);
@@ -81,15 +89,15 @@ yar_server_set_opt(YAR_READ_TIMEOUT, &timeout);
 
 Returns `1` on success, `0` on failure.
 
-##### YAR_STAND_ALONE
+#### YAR_STAND_ALONE
 
 Run as a single process (no daemon, no pre-fork). Useful during development and debugging.
 
-##### YAR_READ_TIMEOUT
+#### YAR_READ_TIMEOUT
 
 Read timeout for requests, in seconds. Default is `5`.
 
-##### YAR_PARENT_INIT & YAR_CUSTOM_DATA
+#### YAR_PARENT_INIT & YAR_CUSTOM_DATA
 
 Yar pre-forks several worker processes. This hook is called in the master process after pre-forking and master initialisation, so you can perform master-only setup.
 
@@ -101,19 +109,19 @@ typedef void (*yar_init)(void *data);
 
 The `data` pointer is whatever was set via `YAR_CUSTOM_DATA`. Use it to pass custom context through the server's lifetime.
 
-##### YAR_CHILD_INIT
+#### YAR_CHILD_INIT
 
 Same as above, but called in each worker process after forking. Same signature (`yar_init`). Also supports custom data via `YAR_CUSTOM_DATA`.
 
-##### YAR_CHILD_USER & YAR_CHILD_GROUP
+#### YAR_CHILD_USER & YAR_CHILD_GROUP
 
 If set, worker processes will call `setuid` / `setgid` to switch to the specified user/group.
 
-##### YAR_MAX_CHILDREN
+#### YAR_MAX_CHILDREN
 
 Number of pre-forked worker processes. Must be between 1 and 128. Typically set to match the number of CPU cores.
 
-##### YAR_LOG_FILE & YAR_LOG_LEVEL
+#### YAR_LOG_FILE & YAR_LOG_LEVEL
 
 By default Yar runs as a daemon, so log output is not visible on stderr/stdout. Use this option to direct logs to a file or pipe.
 
@@ -125,19 +133,19 @@ Supports plain files and cronolog-style pipes. For example:
 
 This writes logs to `yar_server_*.log` in the current directory, rotated by minute.
 
-Log levels are `YAR_DEBUG`, `YAR_NOTICE`, `YAR_WARN`, `YAR_ERROR`. A log message is emitted only if its level is greater than or equal to the configured level.
+Log levels are `YAR_DEBUG`, `YAR_NOTICE`, `YAR_WARNING`, `YAR_ERROR`. A log message is emitted only if its level is greater than or equal to the configured level.
 
 #### yar_server_get_opt
 
 ```c
-void *yar_server_get_opt(yar_server_opt opt);
+const void *yar_server_get_opt(yar_server_opt opt);
 ```
 
 Get the current value of a server option.
 
 Returns a pointer to the value on success, `NULL` on failure.
 
-#### yar_server_register_handler
+### yar_server_register_handler
 
 ```c
 int yar_server_register_handler(yar_server_handler *handlers);
@@ -178,7 +186,7 @@ $yar->default($args); // yar_handler_example handles this request
 
 Returns `1` on success, `0` on failure.
 
-#### yar_server_run
+### yar_server_run
 
 ```c
 int yar_server_run();
@@ -188,7 +196,7 @@ Start the server. This begins the pre-fork, listen, accept, and process loop.
 
 This call does not return unless the server is shut down.
 
-#### yar_server_shutdown
+### yar_server_shutdown
 
 ```c
 void yar_server_shutdown();
@@ -196,7 +204,7 @@ void yar_server_shutdown();
 
 Gracefully shut down the server. Stops accepting new requests; each worker exits after finishing its current request.
 
-#### yar_server_destroy
+### yar_server_destroy
 
 ```c
 void yar_server_destroy();
@@ -204,24 +212,28 @@ void yar_server_destroy();
 
 Destroy the server instance and free resources.
 
-### Client API
+## Client API
 
 If you want to call an existing Yar Server from C, `Yar_Client` is what you need.
 
-#### yar_client_init
+> **Note**: Yar C client only supports **TCP** and **Unix domain sockets**. HTTP/HTTPS targets are not supported — `yar_client_init()` returns `NULL` for URLs starting with `http://` or `https://`.
+
+### yar_client_init
 
 ```c
 yar_client *yar_client_init(char *hostname);
 ```
 
-Create a `Yar_Client` instance. The argument is the target server address.
+Create a `Yar_Client` instance. The argument is the target server address (e.g. `"tcp://localhost:2222"` or `"/tmp/yar.sock"`).
 
-Returns a `yar_client` pointer on success:
+Returns a `yar_client` pointer on success, `NULL` on failure:
 
 ```c
 typedef struct _yar_client {
     int fd;
     char *hostname;
+    int persistent;
+    int timeout;
     yar_client_call call;
 } yar_client;
 ```
@@ -239,9 +251,34 @@ yar_client *client = yar_client_init("tcp://localhost:2222");
 yar_response *response = client->call(client, "default", 2, args);
 ```
 
-Returns `NULL` on failure (e.g. server unreachable).
+### yar_client_set_opt
 
-#### yar_client_destroy
+```c
+int yar_client_set_opt(yar_client *client, yar_client_opt opt, void *val);
+```
+
+Set a client option. Available options:
+
+```c
+typedef enum _yar_client_opt {
+    YAR_PERSISTENT_LINK = 1,  // Keep connection alive between calls
+    YAR_CONNECT_TIMEOUT       // Connection timeout in seconds
+} yar_client_opt;
+```
+
+Returns `1` on success, `0` on failure.
+
+### yar_client_get_opt
+
+```c
+const void *yar_client_get_opt(yar_client *client, yar_client_opt opt);
+```
+
+Get the current value of a client option.
+
+Returns a pointer to the value on success, `NULL` on failure.
+
+### yar_client_destroy
 
 ```c
 void yar_client_destroy(yar_client *client);
@@ -249,18 +286,34 @@ void yar_client_destroy(yar_client *client);
 
 Destroy a client instance and free resources.
 
-### Parameters and Return Values
+## Parameters and Return Values
 
 Yar uses msgpack as its serialisation protocol. A set of helper APIs is provided for packing and unpacking data.
 
-#### Response helpers
+### Response Helpers
 
 ```c
-void yar_response_set_error(yar_response *response, int code, const char *message);
-void yar_response_set_retval(yar_response *response, yar_payload *payload);
+void yar_response_set_error(yar_response *response, int code, const char *fmt, ...);
+void yar_response_set_retval(yar_response *response, yar_packager *packager);
 ```
 
-#### Unpacking (Reading Incoming Parameters)
+`yar_response_set_error` uses printf-style formatting — you can include format specifiers in the message string just like `printf()`.
+
+### Reading the Response
+
+After a client call returns a `yar_response *`, inspect the result with:
+
+```c
+int yar_response_get_status(yar_response *response);
+const yar_data *yar_response_get_response(yar_response *response);
+int yar_response_get_error(yar_response *response, const char **msg, uint *len);
+```
+
+- `yar_response_get_status` — returns the status code (0 on success, non-zero on error).
+- `yar_response_get_response` — returns the response data as a `yar_data *` to unpack.
+- `yar_response_get_error` — if an error occurred, returns 1 and fills `*msg` and `*len` with the error string. Returns 0 if there was no error.
+
+### Unpacking (Reading Incoming Parameters)
 
 When a request arrives, the registered handler is called with `yar_request` and `yar_response`:
 
@@ -275,6 +328,8 @@ To get the parameters:
 ```c
 const yar_data *parameters = yar_request_get_parameters(request);
 ```
+
+#### Inspecting Data Types
 
 To inspect the type and size of a `yar_data`:
 
@@ -299,10 +354,37 @@ typedef enum _yar_data_type {
 
 For `YAR_DATA_STRING`, `YAR_DATA_MAP`, and `YAR_DATA_ARRAY`, the `size` output parameter receives the length (string) or element count (map/array). For example, `{'k' => 'v'}` returns `size = 1`.
 
-To read the raw value from a `yar_data`:
+#### Extracting Values
+
+The generic value extractor:
 
 ```c
-void *yar_unpack_data_value(const yar_data *data);
+int yar_unpack_data_value(const yar_data *data, void *arg);
+```
+
+Returns the data type constant. The value itself is written to `*arg` — the exact pointer type depends on the data type:
+
+| Data Type | Writes to `*arg` |
+|---|---|
+| `YAR_DATA_NULL` | `NULL` |
+| `YAR_DATA_BOOL` | `int` |
+| `YAR_DATA_LONG` | `long` |
+| `YAR_DATA_ULONG` | `unsigned long` |
+| `YAR_DATA_DOUBLE` | `double` |
+| `YAR_DATA_STRING` | `const char *` |
+| `YAR_DATA_ARRAY` | `const yar_data *` (elements) |
+| `YAR_DATA_MAP` | `const yar_data *` (key-value pairs) |
+
+Typed convenience wrappers (each returns the data type and writes the value):
+
+```c
+int yar_unpack_data_null(const yar_data *data, int *val);
+int yar_unpack_data_bool(const yar_data *data, int *bval);
+int yar_unpack_data_long(const yar_data *data, long *num);
+int yar_unpack_data_ulong(const yar_data *data, unsigned long *num);
+int yar_unpack_data_string(const yar_data *data, const char **str);
+int yar_unpack_data_array(const yar_data *data, const yar_data **arg);
+int yar_unpack_data_map(const yar_data *data, const yar_data **arg);
 ```
 
 **Example — parameter validation**
@@ -339,13 +421,27 @@ do {
         return;
     }
 
-    arg[index++] = *(long *)(yar_unpack_data_value(tmp));
+    long val;
+    yar_unpack_data_long(tmp, &val);
+    arg[index++] = val;
 } while (yar_unpack_iterator_next(it));
 
 yar_unpack_iterator_free(it);
 ```
 
-#### Packing (Building a Response)
+#### Iterator API
+
+```c
+yar_unpack_iterator *yar_unpack_iterator_init(const yar_data *data);
+int yar_unpack_iterator_next(yar_unpack_iterator *it);
+const yar_data *yar_unpack_iterator_current(yar_unpack_iterator *it);
+void yar_unpack_iterator_reset(yar_unpack_iterator *it);
+void yar_unpack_iterator_free(yar_unpack_iterator *it);
+```
+
+`yar_unpack_iterator_reset` moves the iterator back to the first element without re-allocating — useful for iterating the same data multiple times.
+
+### Packing (Building a Response)
 
 After processing the request, use the packing API to construct the return value:
 
@@ -360,7 +456,7 @@ int yar_pack_push_long(yar_packager *packager, long num);
 int yar_pack_push_ulong(yar_packager *packager, unsigned long num);
 int yar_pack_push_double(yar_packager *packager, double num);
 int yar_pack_push_string(yar_packager *packager, char *str, uint len);
-int yar_pack_push_data(yar_packager *packager, yar_data *data);
+int yar_pack_push_data(yar_packager *packager, const yar_data *data);
 int yar_pack_push_packager(yar_packager *packager, yar_packager *data);
 int yar_pack_to_string(yar_packager *packager, yar_payload *payload);
 
@@ -403,19 +499,70 @@ After building the payload, call `yar_response_set_retval` to attach it to the r
 ```c
 yar_payload payload;
 yar_pack_to_string(pk, &payload);
-yar_response_set_retval(response, &payload);
+yar_response_set_retval(response, pk);
 yar_pack_free(pk);
 ```
 
-### Notes
+### Debug Print
+
+```c
+void yar_debug_print_data(const yar_data *data, FILE *fp);
+```
+
+Prints the contents of a `yar_data` to `fp` in a human-readable format. Pass `NULL` for `fp` to print to stdout.
+
+## Utility Functions
+
+### yar_set_non_blocking
+
+```c
+static inline int yar_set_non_blocking(int fd);
+```
+
+Sets a file descriptor to non-blocking mode. Returns `1` on success, `0` on failure. Defined as a static inline in `yar_common.h`.
+
+## Logging
+
+### yar_logger_init
+
+```c
+int yar_logger_init(const char *path, int mask);
+```
+
+Initialise the logger with a file path and a log level mask (bitwise OR of `YAR_DEBUG | YAR_NOTICE | YAR_WARNING | YAR_ERROR`).
+
+Returns `1` on success, `0` on failure.
+
+### yar_logger_setopt
+
+```c
+int yar_logger_setopt(yar_logger_opt opt, void *value);
+```
+
+Set a logger option. Currently supports:
+
+```c
+typedef enum _yar_logger_opt {
+    YAR_LOGGER_HOSTNAME
+} yar_logger_opt;
+```
+
+### yar_logger_destroy
+
+```c
+void yar_logger_destroy();
+```
+
+Destroy the logger and free resources.
+
+## Interoperability
 
 Yar C supports:
 - PHP client → C server
 - C client → C server
 
-PHP server (HTTP-based) is not yet callable from a C client.
+PHP server (HTTP-based) is not callable from a C client — Yar C only speaks the TCP/unix socket protocol.
 
 ## License
 
-[PHP-3.01](https://www.php.net/license/3_01.txt)
-](https://github.com/laruence/yar-c)
+[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
