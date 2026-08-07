@@ -62,10 +62,9 @@ jobs:
         run: |
           ./configure CC=${{ matrix.cc }}
           make
-          make -C tests CC=${{ matrix.cc }}
 
       - name: Run test suites
-        run: sh tests/run_all.sh
+        run: make test CC=${{ matrix.cc }}
 
       - name: Upload test logs
         if: failure()
@@ -104,14 +103,15 @@ jobs:
 
       # Static-only build keeps sanitizer flags out of libtool's shared
       # link dance; the test binaries link .libs/libyar.a directly.
+      # `make test` forwards the configured CFLAGS/LDFLAGS (the sanitizer
+      # flags) to the test build automatically.
       - name: Build yar-c with sanitizers
         run: |
           ./configure --disable-shared CC=clang CFLAGS="$SAN_FLAGS" LDFLAGS="$SAN_FLAGS"
           make
-          make -C tests CC=clang EXTRA_CFLAGS="$SAN_FLAGS" EXTRA_LDFLAGS="$SAN_FLAGS"
 
       - name: Run C test suite
-        run: sh tests/run_all.sh --no-php
+        run: make test CC=clang TEST_ARGS=--no-php
 
       - name: Upload test logs
         if: failure()

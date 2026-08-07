@@ -727,7 +727,13 @@ distcleancheck: distclean
 	       $(distcleancheck_listfiles) ; \
 	       exit 1; } >&2
 check-am: all-am
-check: check-am
+check: check-am test
+
+# build the test binaries and run the whole suite (C suite + PHP interop);
+# TEST_ARGS is forwarded to run_all.sh, eg: make test TEST_ARGS=--no-php
+test: all
+	$(MAKE) -C tests EXTRA_CFLAGS="$(CFLAGS)" EXTRA_LDFLAGS="$(LDFLAGS)"
+	sh tests/run_all.sh $(TEST_ARGS)
 all-am: Makefile $(LTLIBRARIES) $(HEADERS) config.h
 installdirs:
 	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"; do \
@@ -839,7 +845,7 @@ uninstall-am: uninstall-includeHEADERS uninstall-libLTLIBRARIES
 
 .MAKE: all install-am install-strip
 
-.PHONY: CTAGS GTAGS TAGS all all-am am--refresh check check-am clean \
+.PHONY: CTAGS GTAGS TAGS all all-am am--refresh check check-am clean test \
 	clean-cscope clean-generic clean-libLTLIBRARIES clean-libtool \
 	cscope cscopelist-am ctags ctags-am dist dist-all dist-bzip2 \
 	dist-gzip dist-lzip dist-shar dist-tarZ dist-xz dist-zip \
