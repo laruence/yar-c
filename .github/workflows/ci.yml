@@ -63,8 +63,10 @@ jobs:
           ./configure CC=${{ matrix.cc }}
           make
 
+      # PHP (with the yar + msgpack extensions) has been set up above, so
+      # hand it to the runner explicitly to enable the interop suite.
       - name: Run test suites
-        run: make test CC=${{ matrix.cc }}
+        run: make test CC=${{ matrix.cc }} TEST_ARGS="--php $(command -v php)"
 
       - name: Upload test logs
         if: failure()
@@ -110,8 +112,10 @@ jobs:
           ./configure --disable-shared CC=clang CFLAGS="$SAN_FLAGS" LDFLAGS="$SAN_FLAGS"
           make
 
+      # No --php is passed, so the PHP interop suite is skipped and only the
+      # C suite runs under the sanitizers.
       - name: Run C test suite
-        run: make test CC=clang TEST_ARGS=--no-php
+        run: make test CC=clang
 
       - name: Upload test logs
         if: failure()

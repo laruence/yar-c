@@ -5,7 +5,8 @@ libyar_la_LDFLAGS=-levent -lmsgpackc
 include_HEADERS=yar.h yar_common.h yar_server.h yar_client.h yar_response.h yar_request.h yar_pack.h yar_protocol.h yar_log.h
 
 # build the test binaries and run the whole suite (C suite + PHP interop);
-# TEST_ARGS is forwarded to run_all.sh, eg: make test TEST_ARGS=--no-php
+# TEST_ARGS is forwarded to run_all.sh, pass a php binary to enable the
+# PHP interop suite: make test TEST_ARGS="--php /path/to/php"
 test: all
 	$(MAKE) -C tests EXTRA_CFLAGS="$(CFLAGS)" EXTRA_LDFLAGS="$(LDFLAGS)"
 	sh tests/run_all.sh $(TEST_ARGS)

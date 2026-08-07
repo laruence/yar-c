@@ -6,7 +6,11 @@
 #   2. standalone server on a unix domain socket  -> C suite
 #   3. daemonised pre-fork server (4 workers)     -> C concurrent suite
 #
-# Usage: sh tests/run_all.sh [--no-php]
+# Usage: sh tests/run_all.sh [--php <path-to-php>]
+#
+# The PHP interop suite only runs when a php binary is handed in via
+# --php; it then requires the yar and msgpack extensions to be loaded
+# (a missing binary/extension is a hard error, not a silent skip).
 #
 # Environment:
 #   YAR_TEST_PORT   TCP port for the standalone server   (default 19871)
@@ -22,12 +26,26 @@ PORT=${YAR_TEST_PORT:-19871}
 DPORT=${YAR_TEST_DPORT:-19872}
 SOCK=${YAR_TEST_SOCK:-/tmp/yar_test_$$.sock}
 LOGDIR=${YAR_TEST_LOGDIR:-$(pwd)/logs}
-SKIP_PHP=0
+PHP_BIN=
 
-for arg in "$@"; do
-	case "$arg" in
-		--no-php) SKIP_PHP=1 ;;
-		*) echo "usage: $0 [--no-php]" >&2; exit 2 ;;
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--php)
+			if [ $# -lt 2 ]; then
+				echo "error: --php requires the path to a php binary" >&2
+				exit 2
+			fi
+			PHP_BIN=$2
+			shift 2
+			;;
+		--php=*)
+			PHP_BIN=${1#--php=}
+			shift
+			;;
+		*)
+			echo "usage: $0 [--php <path-to-php>]" >&2
+			exit 2
+			;;
 	esac
 done
 
@@ -88,18 +106,20 @@ step "C suite (unix socket)"
 ./yar_test_client --uri "$SOCK" || overall=1
 
 # --- 3. PHP interop -----------------------------------------------------------
-if [ "$SKIP_PHP" = "1" ]; then
-	step "PHP suite skipped (--no-php)"
-elif ! command -v php >/dev/null 2>&1; then
-	step "PHP suite skipped (no php binary found)"
-elif ! php -r 'exit(extension_loaded("yar") && extension_loaded("msgpack") ? 0 : 1);' >/dev/null 2>&1; then
-	step "PHP suite skipped (yar/msgpack extension not loaded)"
+if [ -z "$PHP_BIN" ]; then
+	step "PHP suite skipped (pass --php <path-to-php> to enable)"
+elif ! command -v "$PHP_BIN" >/dev/null 2>&1; then
+	echo "FATAL: php binary not found: $PHP_BIN" >&2
+	exit 1
+elif ! "$PHP_BIN" -r 'exit(extension_loaded("yar") && extension_loaded("msgpack") ? 0 : 1);' >/dev/null 2>&1; then
+	echo "FATAL: $PHP_BIN does not have both the yar and msgpack extensions loaded" >&2
+	exit 1
 else
-	step "PHP suite (tcp)"
+	step "PHP suite (tcp) using $PHP_BIN"
 	php_fail=0
 	for t in php/0*.php; do
 		printf 'TEST %-44s ' "$t"
-		if YAR_TEST_URI="tcp://127.0.0.1:$PORT" php -d yar.packager=msgpack "$t" \
+		if YAR_TEST_URI="tcp://127.0.0.1:$PORT" "$PHP_BIN" -d yar.packager=msgpack "$t" \
 				>"$LOGDIR/$(basename "$t").out" 2>&1; then
 			echo PASS
 		else
