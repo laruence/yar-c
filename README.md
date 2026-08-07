@@ -1,6 +1,6 @@
 # Yar C Framework
 
-[![Build Status](https://secure.travis-ci.org/laruence/yar-c.png)](https://travis-ci.org/laruence/yar-c)
+[![CI](https://github.com/laruence/yar-c/actions/workflows/ci.yml/badge.svg)](https://github.com/laruence/yar-c/actions/workflows/ci.yml)
 
 A high-performance RPC server/client library written in C.
 
