@@ -84,6 +84,48 @@ fi
 
 AC_CHECK_LIB([msgpackc], [msgpack_unpacker_init], [], [ AC_MSG_ERROR([check for msgpack_uppacker_init in msgpack failed]) ])
 
+# cJSON is optional, it enables the JSON packager; when it is missing the
+# library still builds and only speaks msgpack
+AC_MSG_CHECKING(for cjson)
+AC_ARG_WITH(cjson,
+            [  --with-cjson=[DIR]  Path to cjson installation dir],
+            [CJSON_DIR=$withval],
+            [CJSON_DIR="no"])
+
+if test "$CJSON_DIR" = "no"; then
+    for i in /usr /usr/local /opt/local /opt/homebrew; do
+        if test -r $i"/include/cjson/cJSON.h"; then
+            CJSON_DIR=$i
+            CJSON_HEADER=$i"/include/"
+            CJSON_LIBRARY=$i"/lib/"
+            CFLAGS=$CFLAGS" -I${CJSON_HEADER}"
+            LDFLAGS=$LDFLAGS" -Wl,-rpath,${CJSON_LIBRARY} -L${CJSON_LIBRARY}"
+            break
+        fi
+    done
+else
+    if test -r $CJSON_DIR"/include/cjson/cJSON.h"; then
+        CJSON_HEADER=$CJSON_DIR"/include/"
+        CJSON_LIBRARY=$CJSON_DIR"/lib/"
+        CFLAGS=$CFLAGS" -I${CJSON_HEADER}"
+        LDFLAGS=$LDFLAGS" -Wl,-rpath,${CJSON_LIBRARY} -L${CJSON_LIBRARY}"
+    else
+        AC_MSG_ERROR([could not find cjson in '$CJSON_DIR'])
+    fi
+fi
+
+JSON_LIBS=""
+if test -n "$CJSON_HEADER"; then
+    AC_CHECK_LIB([cjson], [cJSON_ParseWithLengthOpts],
+        [AC_DEFINE([HAVE_JSON], [1], [Define to 1 if cJSON is available for the JSON packager])
+         JSON_LIBS="-lcjson"
+         AC_MSG_RESULT([found in $CJSON_DIR])],
+        [AC_MSG_RESULT([header found but library check failed, JSON packager disabled])])
+else
+    AC_MSG_RESULT([not found, JSON packager disabled])
+fi
+AC_SUBST(JSON_LIBS)
+
 # Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT

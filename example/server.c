@@ -15,7 +15,6 @@
 #include <sys/types.h>
 
 #include "yar.h"
-#include "msgpack.h" 
 
 void yar_handler_example(yar_request *request, yar_response *response, void *cookie) {
 	yar_packager *packager;

@@ -31,8 +31,8 @@ typedef struct _yar_request {
 	char *body;
 } yar_request;
 
-int yar_request_pack(yar_request *request, struct _yar_payload *payload, int extra_bytes);
-int yar_request_unpack(yar_request *request, char *payload, uint len, int extra_bytes);
+int yar_request_pack(yar_request *request, struct _yar_payload *payload, int extra_bytes, yar_packager_type type);
+int yar_request_unpack(yar_request *request, char *payload, uint len, int extra_bytes, yar_packager_type type);
 void yar_request_set_parameters(yar_request *request, yar_packager *packager);
 const yar_data * yar_request_get_parameters(yar_request *request);
 void yar_request_free(yar_request *request);

@@ -5,6 +5,7 @@
  *   yar_test_client --uri <tcp://host:port | /path/to/sock>   run the test suite
  *   yar_test_client --uri <...> --probe                       wait until the server accepts connections
  *   yar_test_client --uri <...> --concurrent                  run only the concurrency test
+ *   yar_test_client --uri <...> --packager <msgpack|json>     wire protocol packager (default msgpack)
  *
  * Copyright (C) 2026 Xinchen Hui <laruence at gmail dot com>
  *
@@ -40,12 +41,17 @@
 
 static char *test_uri = NULL;
 static int test_is_tcp = 0;
+static int test_packager = YAR_PACKAGER_MSGPACK;
 
 /* helpers {{{ */
 static yar_client * new_client_timeout(int timeout) {
 	yar_client *client = yar_client_init(test_uri);
 	if (client) {
+		int packager = test_packager;
 		yar_client_set_opt(client, YAR_CONNECT_TIMEOUT, &timeout);
+		if (packager != YAR_PACKAGER_MSGPACK) {
+			yar_client_set_opt(client, YAR_OPT_PACKAGER, &packager);
+		}
 	}
 	return client;
 }
@@ -365,6 +371,187 @@ static void test_echo_composite(void) {
 
 	elem = map_get(array_at(data, 0), "empty", 5);
 	YAR_ASSERT(elem && yar_unpack_data_type(elem, &size) == YAR_DATA_ARRAY && size == 0, "empty array lost");
+
+	free_response(response);
+	yar_client_destroy(client);
+}
+/* }}} */
+
+/* type matrix {{{ */
+static void test_types(void) {
+	yar_client *client = new_client();
+	yar_response *response;
+
+	YAR_ASSERT(client != NULL, "connect failed");
+	response = client->call(client, "types", 0, NULL);
+
+	if (test_packager == YAR_PACKAGER_JSON) {
+		yar_client *probe;
+		yar_response *probe_response;
+
+		/* the type matrix contains a binary string with embedded NUL bytes,
+		 * that can not be represented in JSON; the server must drop this one
+		 * call but keep serving other clients */
+		YAR_ASSERT(response == NULL, "types() carries binary data and must fail over JSON");
+
+		probe = new_client();
+		YAR_ASSERT(probe != NULL, "server stopped accepting after a JSON encoding failure");
+		probe_response = probe->call(probe, "echo", 0, NULL);
+		YAR_ASSERT(probe_response != NULL && yar_response_get_status(probe_response) == 0,
+				"server no longer functional after a JSON encoding failure");
+		free_response(probe_response);
+		yar_client_destroy(probe);
+		return;
+	}
+
+	{
+		const yar_data *data, *elem, *arr;
+		unsigned int size = 0, dummy = 0;
+		long lval;
+		double dval;
+		int bval;
+		const char *str;
+
+		YAR_ASSERT(response != NULL, "no response");
+		YAR_ASSERT(yar_response_get_status(response) == 0, "unexpected status %d", yar_response_get_status(response));
+
+		data = yar_response_get_response(response);
+		YAR_ASSERT(data && yar_unpack_data_type(data, &size) == YAR_DATA_MAP && size == 12,
+				"expected a map of 12, got type %d size %u",
+				data ? yar_unpack_data_type(data, &size) : 0, size);
+
+		elem = map_get(data, "null", 4);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &dummy) == YAR_DATA_NULL, "null value");
+		elem = map_get(data, "true", 4);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &dummy) == YAR_DATA_BOOL
+				&& yar_unpack_data_bool(elem, &bval) == YAR_DATA_BOOL && bval == 1, "true value");
+		elem = map_get(data, "false", 5);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &dummy) == YAR_DATA_BOOL
+				&& yar_unpack_data_bool(elem, &bval) == YAR_DATA_BOOL && bval == 0, "false value");
+		elem = map_get(data, "long", 4);
+		YAR_ASSERT(elem && data_as_long(elem, &lval) != 0 && lval == -12345, "long value");
+		elem = map_get(data, "ulong", 5);
+		YAR_ASSERT(elem && data_as_long(elem, &lval) != 0 && lval == 4294967296L, "ulong value");
+		elem = map_get(data, "double", 6);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &dummy) == YAR_DATA_DOUBLE
+				&& yar_unpack_data_value(elem, &dval) == YAR_DATA_DOUBLE && dval == 3.14159, "double value");
+		elem = map_get(data, "string", 6);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &size) == YAR_DATA_STRING && size == 9
+				&& yar_unpack_data_string(elem, &str) == YAR_DATA_STRING && strncmp(str, "hello yar", 9) == 0,
+				"string value");
+		elem = map_get(data, "binary", 6);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &size) == YAR_DATA_STRING && size == 4
+				&& yar_unpack_data_string(elem, &str) == YAR_DATA_STRING
+				&& memcmp(str, "\x00\x01\x02\xff", 4) == 0,
+				"binary value");
+
+		elem = map_get(data, "array", 5);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &size) == YAR_DATA_ARRAY && size == 3, "array value");
+		YAR_ASSERT(array_at(elem, 0) && data_as_long(array_at(elem, 0), &lval) != 0 && lval == 1, "array[0]");
+		arr = array_at(elem, 1);
+		YAR_ASSERT(arr && yar_unpack_data_type(arr, &size) == YAR_DATA_STRING && size == 3
+				&& yar_unpack_data_string(arr, &str) == YAR_DATA_STRING && strncmp(str, "two", 3) == 0,
+				"array[1]");
+		arr = array_at(elem, 2);
+		YAR_ASSERT(arr && yar_unpack_data_type(arr, &dummy) == YAR_DATA_DOUBLE
+				&& yar_unpack_data_value(arr, &dval) == YAR_DATA_DOUBLE && dval == 3.0, "array[2]");
+
+		elem = map_get(data, "map", 3);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &size) == YAR_DATA_MAP && size == 1, "map value");
+		elem = map_get(elem, "nested", 6);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &size) == YAR_DATA_MAP && size == 1, "map.nested");
+		elem = map_get(elem, "deep", 4);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &size) == YAR_DATA_ARRAY && size == 2, "map.nested.deep");
+		YAR_ASSERT(array_at(elem, 0) && yar_unpack_data_type(array_at(elem, 0), &dummy) == YAR_DATA_BOOL
+				&& yar_unpack_data_bool(array_at(elem, 0), &bval) == YAR_DATA_BOOL && bval == 1, "deep[0]");
+		YAR_ASSERT(array_at(elem, 1) && yar_unpack_data_type(array_at(elem, 1), &dummy) == YAR_DATA_NULL, "deep[1]");
+
+		elem = map_get(data, "empty_array", 11);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &size) == YAR_DATA_ARRAY && size == 0, "empty_array");
+		elem = map_get(data, "empty_map", 9);
+		YAR_ASSERT(elem && yar_unpack_data_type(elem, &size) == YAR_DATA_MAP && size == 0, "empty_map");
+
+		free_response(response);
+		yar_client_destroy(client);
+	}
+}
+/* }}} */
+
+/* JSON number/string fidelity: only meaningful with --packager json {{{ */
+static void test_json_fidelity(void) {
+	yar_client *client;
+	yar_response *response;
+	yar_packager *arg;
+	const yar_data *data, *elem;
+	unsigned int size = 0, dummy = 0;
+	long lval;
+	double dval;
+	const char *str;
+	const int *configured;
+
+	if (test_packager != YAR_PACKAGER_JSON) {
+		printf("(skipped for msgpack) ");
+		return;
+	}
+
+	/* covers the JSON<->msgpack converter edges: the biggest integer a double
+	 * can represent exactly (16 significant digits, cJSON would mangle it with
+	 * %1.15g), fractional and huge doubles, escapes and UTF-8, empty containers */
+	arg = yar_pack_start_map(6);
+	yar_pack_push_string(arg, "big", 3);
+	yar_pack_push_long(arg, 9007199254740992L); /* 2^53 */
+	yar_pack_push_string(arg, "neg", 3);
+	yar_pack_push_long(arg, -9007199254740992L);
+	yar_pack_push_string(arg, "frac", 4);
+	yar_pack_push_double(arg, 0.1);
+	yar_pack_push_string(arg, "huge", 4);
+	yar_pack_push_double(arg, 1e300);
+	yar_pack_push_string(arg, "text", 4);
+	yar_pack_push_string(arg, "line1\nline2\t\"q\" 你好", sizeof("line1\nline2\t\"q\" 你好") - 1);
+	yar_pack_push_string(arg, "empty_map", 9);
+	yar_pack_push_map(arg, 0);
+
+	client = new_client();
+	YAR_ASSERT(client != NULL, "connect failed");
+
+	configured = (const int *)yar_client_get_opt(client, YAR_OPT_PACKAGER);
+	YAR_ASSERT(configured != NULL && *configured == YAR_PACKAGER_JSON,
+			"get_opt(YAR_OPT_PACKAGER) should report json");
+
+	response = client->call(client, "echo", 1, &arg);
+	yar_pack_free(arg);
+	YAR_ASSERT(response != NULL, "no response");
+	YAR_ASSERT(yar_response_get_status(response) == 0, "unexpected status %d", yar_response_get_status(response));
+
+	data = yar_response_get_response(response);
+	YAR_ASSERT(data && yar_unpack_data_type(data, &size) == YAR_DATA_ARRAY && size == 1, "expected an array of 1");
+	elem = array_at(data, 0);
+	YAR_ASSERT(elem && yar_unpack_data_type(elem, &size) == YAR_DATA_MAP && size == 6, "expected a map of 6");
+
+	YAR_ASSERT(map_get(elem, "big", 3) && data_as_long(map_get(elem, "big", 3), &lval) != 0
+			&& lval == 9007199254740992L, "2^53 did not roundtrip exactly");
+	YAR_ASSERT(map_get(elem, "neg", 3) && data_as_long(map_get(elem, "neg", 3), &lval) != 0
+			&& lval == -9007199254740992L, "-2^53 did not roundtrip exactly");
+	YAR_ASSERT(map_get(elem, "frac", 4) && yar_unpack_data_type(map_get(elem, "frac", 4), &dummy) == YAR_DATA_DOUBLE
+			&& yar_unpack_data_value(map_get(elem, "frac", 4), &dval) == YAR_DATA_DOUBLE && dval == 0.1,
+			"0.1 did not roundtrip exactly");
+	YAR_ASSERT(map_get(elem, "huge", 4) && yar_unpack_data_type(map_get(elem, "huge", 4), &dummy) == YAR_DATA_DOUBLE
+			&& yar_unpack_data_value(map_get(elem, "huge", 4), &dval) == YAR_DATA_DOUBLE && dval == 1e300,
+			"1e300 did not roundtrip exactly");
+
+	{
+		const char expected[] = "line1\nline2\t\"q\" 你好";
+		const yar_data *text = map_get(elem, "text", 4);
+		YAR_ASSERT(text && yar_unpack_data_type(text, &size) == YAR_DATA_STRING
+				&& size == sizeof(expected) - 1
+				&& yar_unpack_data_string(text, &str) == YAR_DATA_STRING
+				&& memcmp(str, expected, size) == 0,
+				"escaped/UTF-8 string did not roundtrip");
+	}
+
+	YAR_ASSERT(map_get(elem, "empty_map", 9)
+			&& yar_unpack_data_type(map_get(elem, "empty_map", 9), &size) == YAR_DATA_MAP && size == 0,
+			"empty map did not roundtrip");
 
 	free_response(response);
 	yar_client_destroy(client);
@@ -705,14 +892,21 @@ int main(int argc, char **argv) {
 			probe = 1;
 		} else if (strcmp(argv[i], "--concurrent") == 0) {
 			concurrent_only = 1;
+		} else if (strcmp(argv[i], "--packager") == 0 && i + 1 < argc) {
+			if (strcmp(argv[++i], "json") == 0) {
+				test_packager = YAR_PACKAGER_JSON;
+			} else if (strcmp(argv[i], "msgpack") != 0) {
+				fprintf(stderr, "error: unknown packager '%s', expected msgpack or json\n", argv[i]);
+				return 2;
+			}
 		} else {
-			fprintf(stderr, "usage: %s --uri <tcp://host:port | /path/sock> [--probe] [--concurrent]\n", argv[0]);
+			fprintf(stderr, "usage: %s --uri <tcp://host:port | /path/sock> [--probe] [--concurrent] [--packager <msgpack|json>]\n", argv[0]);
 			return 2;
 		}
 	}
 
 	if (!test_uri) {
-		fprintf(stderr, "usage: %s --uri <tcp://host:port | /path/sock> [--probe] [--concurrent]\n", argv[0]);
+		fprintf(stderr, "usage: %s --uri <tcp://host:port | /path/sock> [--probe] [--concurrent] [--packager <msgpack|json>]\n", argv[0]);
 		return 2;
 	}
 
@@ -722,7 +916,8 @@ int main(int argc, char **argv) {
 		return probe_server();
 	}
 
-	printf("yar-c test suite, uri = %s\n", test_uri);
+	printf("yar-c test suite, uri = %s, packager = %s\n", test_uri,
+			test_packager == YAR_PACKAGER_JSON? "json" : "msgpack");
 
 	if (concurrent_only) {
 		YAR_RUN(test_concurrent);
@@ -735,6 +930,8 @@ int main(int argc, char **argv) {
 	YAR_RUN(test_echo_no_args);
 	YAR_RUN(test_echo_scalars);
 	YAR_RUN(test_echo_composite);
+	YAR_RUN(test_types);
+	YAR_RUN(test_json_fidelity);
 	YAR_RUN(test_add_long);
 	YAR_RUN(test_add_double);
 	YAR_RUN(test_undefined_method);

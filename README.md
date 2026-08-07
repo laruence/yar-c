@@ -10,11 +10,12 @@ See also: [Yar PHP framework](https://github.com/laruence/yar), [Yar Java framew
 
 - libevent
 - [msgpack-c](https://github.com/msgpack/msgpack-c)
+- [cJSON](https://github.com/DaveGamble/cJSON) (optional, enables the JSON packager)
 
 ## Install
 
 ```bash
-$ ./configure --with-msgpack=/path/to/msgpack --with-event=/path/to/libevent
+$ ./configure --with-msgpack=/path/to/msgpack --with-event=/path/to/libevent --with-cjson=/path/to/cjson
 $ make
 ```
 
@@ -234,6 +235,7 @@ typedef struct _yar_client {
     char *hostname;
     int persistent;
     int timeout;
+    int packager;
     yar_client_call call;
 } yar_client;
 ```
@@ -262,8 +264,16 @@ Set a client option. Available options:
 ```c
 typedef enum _yar_client_opt {
     YAR_PERSISTENT_LINK = 1,  // Keep connection alive between calls
-    YAR_CONNECT_TIMEOUT       // Connection timeout in seconds
+    YAR_CONNECT_TIMEOUT,      // Connection timeout in seconds
+    YAR_OPT_PACKAGER          // Wire packager: YAR_PACKAGER_MSGPACK (default) or YAR_PACKAGER_JSON
 } yar_client_opt;
+```
+
+For example, to send requests as JSON instead of msgpack:
+
+```c
+int packager = YAR_PACKAGER_JSON;
+yar_client_set_opt(client, YAR_OPT_PACKAGER, &packager);
 ```
 
 Returns `1` on success, `0` on failure.
@@ -286,9 +296,23 @@ void yar_client_destroy(yar_client *client);
 
 Destroy a client instance and free resources.
 
+## Packagers
+
+Two wire packagers are supported:
+
+- **msgpack** (default) — binary serialisation, full fidelity, handles arbitrary binary strings.
+- **JSON** — text serialisation, requires the library to be built with cJSON.
+
+The server reads the packager tag from each request and replies with the same packager, so msgpack and JSON clients can be mixed against one server (see `YAR_OPT_PACKAGER` above for selecting it in the C client).
+
+JSON limitations:
+
+- Strings with embedded NUL bytes can not be transported — if a handler returns such a string, the JSON response can not be encoded and the server drops the call (it keeps serving other clients).
+- Numbers are limited to what an IEEE double can represent exactly; integers beyond 2^53 may lose precision.
+
 ## Parameters and Return Values
 
-Yar uses msgpack as its serialisation protocol. A set of helper APIs is provided for packing and unpacking data.
+Yar represents parameters and return values as a format-independent value tree (`yar_data`). The wire format is a pluggable codec — msgpack and JSON encode/decode the same tree, so handlers never touch the wire format directly. A set of helper APIs is provided for packing and unpacking data.
 
 ### Response Helpers
 

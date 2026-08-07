@@ -18,8 +18,8 @@
 
 #include <stdio.h>
 #include <stdarg.h>     /* for va_list */
+#include <stdlib.h>
 #include <string.h>
-#include "msgpack.h"
 
 #include "yar_common.h"
 #include "yar_pack.h"
@@ -28,7 +28,7 @@
 
 static char yar_response_keys[] = {'i', 's', 'r', 'e'};
 
-int yar_response_pack(yar_response *response, yar_payload *payload, int extra_bytes) /* {{{ */ {
+int yar_response_pack(yar_response *response, yar_payload *payload, int extra_bytes, yar_packager_type type) /* {{{ */ {
 	uint index;
 	yar_packager *pk = yar_pack_start_map(4);
 
@@ -67,23 +67,35 @@ int yar_response_pack(yar_response *response, yar_payload *payload, int extra_by
 	}
 
 	{
-		yar_payload tmp;
-		yar_pack_to_string(pk, &tmp);
+		yar_payload tmp = {0};
+
+		if (!yar_pack_encode(pk, &tmp, type)) {
+			yar_pack_free(pk);
+			return 0;
+		}
+
 		payload->data = malloc(tmp.size + extra_bytes);
+		if (!payload->data) {
+			free(tmp.data);
+			yar_pack_free(pk);
+			return 0;
+		}
+
 		memcpy(payload->data + extra_bytes, tmp.data, tmp.size);
 		payload->size = tmp.size + extra_bytes;
+		free(tmp.data);
 	}
 
 	yar_pack_free(pk);
 
 	return 1;
-} 
+}
 /* }}} */
 
-int yar_response_unpack(yar_response *response, char *payload, uint len, int extra_bytes) /* {{{ */ {
+int yar_response_unpack(yar_response *response, char *payload, uint len, int extra_bytes, yar_packager_type type) /* {{{ */ {
 	uint size;
 	const yar_data *obj;
-	yar_unpackager *unpk = yar_unpack_init(payload + extra_bytes, len - extra_bytes);
+	yar_unpackager *unpk = yar_unpack_init(payload + extra_bytes, len - extra_bytes, type);
 
 	if (!unpk) {
 		return 0;

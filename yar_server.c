@@ -586,29 +586,50 @@ static void yar_server_on_read(int fd, short ev, void *arg) /* {{{ */ {
 			yar_server_handler *handler;
 			yar_header header = {0};
 			yar_response *response = ctx->response;
+			char *tag = request->body + sizeof(yar_header);
+			yar_packager_type packager;
 
-			if (strncmp(request->body + sizeof(yar_header), YAR_PACKAGER, sizeof(YAR_PACKAGER) - 1) != 0) {
-				yar_response_set_error(response, YAR_ERROR, "package protocol %.*s is not supported, only msgpack does",
-					   	sizeof(YAR_PACKAGER) - 1, request->body + sizeof(yar_header));
-			} else if (!yar_request_unpack(request, request->body, request->blen, sizeof(yar_header) + sizeof(YAR_PACKAGER))) {
-				yar_response_set_error(response, YAR_ERROR, "%s", "request header verify failed");
-			} else {
-				response->id = request->id;
-				handler = yar_server_find_handler(request->method, request->mlen);
-				if (!handler) {
-					yar_response_set_error(response, YAR_ERROR, "call to undefined method '%.*s'", request->mlen, request->method);
+			/* the packager tag selects the wire codec; both packagers share
+			 * the same envelope ({i,m,p}), so handlers stay format-agnostic */
+			if (strncmp(tag, YAR_PACKAGER_JSON_TAG, sizeof(YAR_PACKAGER_JSON_TAG) - 1) == 0) {
+				if (yar_packager_available(YAR_PACKAGER_JSON)) {
+					packager = YAR_PACKAGER_JSON;
 				} else {
-					handler->handler(request, response, server->data);
+					packager = YAR_PACKAGER_MSGPACK;
+					yar_response_set_error(response, YAR_ERROR, "%s", "package protocol JSON is not supported, rebuild with cJSON to enable it");
+				}
+			} else if (strncmp(tag, YAR_PACKAGER, sizeof(YAR_PACKAGER) - 1) == 0) {
+				packager = YAR_PACKAGER_MSGPACK;
+			} else {
+				packager = YAR_PACKAGER_MSGPACK;
+				yar_response_set_error(response, YAR_ERROR, "package protocol %.*s is not supported, only msgpack and JSON do",
+						sizeof(YAR_PACKAGER) - 1, tag);
+			}
+
+			if (!response->error) {
+				if (!yar_request_unpack(request, request->body, request->blen, sizeof(yar_header) + sizeof(YAR_PACKAGER), packager)) {
+					yar_response_set_error(response, YAR_ERROR, "%s", "request header verify failed");
+				} else {
+					response->id = request->id;
+					handler = yar_server_find_handler(request->method, request->mlen);
+					if (!handler) {
+						yar_response_set_error(response, YAR_ERROR, "call to undefined method '%.*s'", request->mlen, request->method);
+					} else {
+						handler->handler(request, response, server->data);
+					}
 				}
 			}
-			if (!yar_response_pack(response, &response->payload, sizeof(yar_header) + sizeof(YAR_PACKAGER))) {
+
+			if (!yar_response_pack(response, &response->payload, sizeof(yar_header) + sizeof(YAR_PACKAGER), packager)) {
+				/* the payload can not be represented in the requested packager
+				 * (e.g. binary data over JSON), nothing sensible to send back */
 				yar_server_log_error(ctx, "Failed to pack response");
 				yar_server_close_connection(fd, ctx);
 				return;
 			}
 			yar_protocol_render(&header, request->id, YAR_SERVER_NAME, NULL, response->payload.size - sizeof(yar_header), 0);
 			memcpy(response->payload.data, (char *)&header, sizeof(yar_header));
-			memcpy(response->payload.data + sizeof(yar_header), YAR_PACKAGER, sizeof(YAR_PACKAGER));
+			memcpy(response->payload.data + sizeof(yar_header), packager == YAR_PACKAGER_JSON? YAR_PACKAGER_JSON_TAG : YAR_PACKAGER, sizeof(YAR_PACKAGER));
 			event_set(&ctx->ev_write, fd, EV_WRITE|EV_PERSIST, yar_server_on_write, ctx);
 			event_add(&ctx->ev_write, &ctx->timeout);
 			ctx->write_registered = 1;

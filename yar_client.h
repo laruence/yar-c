@@ -30,12 +30,14 @@ struct _yar_client {
 	char *hostname;
 	int persistent;
 	int timeout;
+	int packager;
 	yar_client_call call;
 };
 
 typedef enum _yar_client_opt {
 	YAR_PERSISTENT_LINK = 1,
-	YAR_CONNECT_TIMEOUT
+	YAR_CONNECT_TIMEOUT,
+	YAR_OPT_PACKAGER
 } yar_client_opt;
 
 yar_client * yar_client_init(char *hostname);

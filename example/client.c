@@ -14,7 +14,6 @@
 #include <sys/types.h>
 
 #include "yar.h"
-#include "msgpack.h"
 
 void output_response(yar_response *response) {
 	if (!yar_response_get_status(response)) {
@@ -31,7 +30,7 @@ void output_response(yar_response *response) {
 				break;
 			default:
 				fprintf(stdout, "[OKEY]:");
-				msgpack_object_print(stdout, *(msgpack_object *)data);
+				yar_debug_print_data(data, stdout);
 				fprintf(stdout, "\n");
 				fflush(stdout);
 				break;

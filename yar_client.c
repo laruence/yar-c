@@ -105,7 +105,7 @@ static yar_response * yar_client_caller(yar_client *client, char *method, uint n
 		yar_pack_free(packager);
 	}
 
-	if (!yar_request_pack(request, &payload, sizeof(yar_header) + sizeof(YAR_PACKAGER))) {
+	if (!yar_request_pack(request, &payload, sizeof(yar_header) + sizeof(YAR_PACKAGER), (yar_packager_type)client->packager)) {
 		alog(YAR_ERROR, "Packing request failed");
 		yar_request_free(request);
 		free(request);
@@ -115,7 +115,7 @@ static yar_response * yar_client_caller(yar_client *client, char *method, uint n
 	yar_protocol_render(&header, request_id, YAR_CLIENT_NAME, NULL, payload.size - sizeof(yar_header), client->persistent? YAR_PROTOCOL_PERSISTENT : 0);
 
 	memcpy(payload.data, (char *)&header, sizeof(yar_header));
-	memcpy(payload.data + sizeof(yar_header), YAR_PACKAGER, sizeof(YAR_PACKAGER));
+	memcpy(payload.data + sizeof(yar_header), client->packager == YAR_PACKAGER_JSON? YAR_PACKAGER_JSON_TAG : YAR_PACKAGER, sizeof(YAR_PACKAGER));
 	yar_request_free(request);
 	free(request);
 
@@ -233,7 +233,20 @@ static yar_response * yar_client_caller(yar_client *client, char *method, uint n
 		total_read += bytes_read;
 	}
 
-	if (!yar_response_unpack(response, response->payload.data, response->payload.size, sizeof(yar_header) + sizeof(YAR_PACKAGER))) {
+	{
+		char *tag = response->payload.data + sizeof(yar_header);
+		if (client->packager == YAR_PACKAGER_JSON) {
+			if (strncmp(tag, YAR_PACKAGER_JSON_TAG, sizeof(YAR_PACKAGER_JSON_TAG) - 1) != 0) {
+				alog(YAR_ERROR, "Response packager is not JSON");
+				goto error;
+			}
+		} else if (strncmp(tag, YAR_PACKAGER, sizeof(YAR_PACKAGER) - 1) != 0) {
+			alog(YAR_ERROR, "Response packager is not msgpack");
+			goto error;
+		}
+	}
+
+	if (!yar_response_unpack(response, response->payload.data, response->payload.size, sizeof(yar_header) + sizeof(YAR_PACKAGER), (yar_packager_type)client->packager)) {
 		alog(YAR_ERROR, "Unpack response failed");
 		goto error;
 	}
@@ -385,6 +398,9 @@ int yar_client_set_opt(yar_client *client, yar_client_opt opt, void *val) /* {{{
 		case YAR_CONNECT_TIMEOUT:
 			client->timeout = *(int *)val;
 		break;
+		case YAR_OPT_PACKAGER:
+			client->packager = *(int *)val;
+		break;
 		default:
 			return 0;
 	}
@@ -399,6 +415,9 @@ const void * yar_client_get_opt(yar_client *client, yar_client_opt opt) /* {{{ *
 		break;
 		case YAR_CONNECT_TIMEOUT:
 			return &client->timeout;
+		break;
+		case YAR_OPT_PACKAGER:
+			return &client->packager;
 		break;
 		default:
 			return NULL;

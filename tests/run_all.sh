@@ -2,15 +2,19 @@
 # yar-c test suite orchestrator.
 #
 # Phases:
-#   1. standalone (single process) server on TCP  -> C suite + PHP suite
+#   1. standalone (single process) server on TCP  -> C suite (msgpack + json) + PHP suite
 #   2. standalone server on a unix domain socket  -> C suite
-#   3. daemonised pre-fork server (4 workers)     -> C concurrent suite
+#   3. daemonised pre-fork server (4 workers)     -> C concurrent suite (msgpack + json)
 #
 # Usage: sh tests/run_all.sh [--php <path-to-php>]
 #
 # The PHP interop suite only runs when a php binary is handed in via
 # --php; it then requires the yar and msgpack extensions to be loaded
 # (a missing binary/extension is a hard error, not a silent skip).
+#
+# The JSON packager passes only run when the library was built with cJSON
+# support (HAVE_JSON in config.h); PHP tests whose name ends in -json.php
+# are executed with -d yar.packager=json, all others with msgpack.
 #
 # Environment:
 #   YAR_TEST_PORT   TCP port for the standalone server   (default 19871)
@@ -54,6 +58,12 @@ if [ ! -x ./yar_test_server ] || [ ! -x ./yar_test_client ]; then
 	exit 2
 fi
 
+# the JSON packager passes need a cJSON-enabled build
+HAVE_JSON=0
+if [ -f ../config.h ] && grep -q '#define HAVE_JSON 1' ../config.h; then
+	HAVE_JSON=1
+fi
+
 mkdir -p "$LOGDIR"
 
 overall=0
@@ -91,6 +101,13 @@ fi
 step "C suite (tcp)"
 ./yar_test_client --uri "tcp://127.0.0.1:$PORT" || overall=1
 
+if [ "$HAVE_JSON" = 1 ]; then
+	step "C suite (tcp, JSON packager)"
+	./yar_test_client --uri "tcp://127.0.0.1:$PORT" --packager json || overall=1
+else
+	step "C suite (tcp, JSON packager) skipped: built without cJSON"
+fi
+
 # --- 2. standalone unix socket server ----------------------------------------
 step "starting standalone unix server on $SOCK"
 ./yar_test_server -S "$SOCK" -X -l "$LOGDIR/unix.log" &
@@ -118,8 +135,20 @@ else
 	step "PHP suite (tcp) using $PHP_BIN"
 	php_fail=0
 	for t in php/0*.php; do
+		case "$t" in
+			*-json.php)
+				if [ "$HAVE_JSON" = 0 ]; then
+					printf 'TEST %-44s SKIP (built without cJSON)\n' "$t"
+					continue
+				fi
+				php_packager=json
+				;;
+			*)
+				php_packager=msgpack
+				;;
+		esac
 		printf 'TEST %-44s ' "$t"
-		if YAR_TEST_URI="tcp://127.0.0.1:$PORT" "$PHP_BIN" -d yar.packager=msgpack "$t" \
+		if YAR_TEST_URI="tcp://127.0.0.1:$PORT" "$PHP_BIN" -d yar.packager="$php_packager" "$t" \
 				>"$LOGDIR/$(basename "$t").out" 2>&1; then
 			echo PASS
 		else
@@ -144,6 +173,11 @@ fi
 
 step "C concurrent suite (pre-fork daemon)"
 ./yar_test_client --uri "tcp://127.0.0.1:$DPORT" --concurrent || overall=1
+
+if [ "$HAVE_JSON" = 1 ]; then
+	step "C concurrent suite (pre-fork daemon, JSON packager)"
+	./yar_test_client --uri "tcp://127.0.0.1:$DPORT" --concurrent --packager json || overall=1
+fi
 
 if [ -f "$daemon_pid_file" ]; then
 	daemon_pid=$(cat "$daemon_pid_file")

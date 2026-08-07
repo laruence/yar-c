@@ -23,6 +23,7 @@
 #include "yar_protocol.h"
 
 char YAR_PACKAGER[8] = "MSGPACK";
+char YAR_PACKAGER_JSON_TAG[8] = "JSON";
 
 void yar_protocol_render(yar_header *header, uint id, char *provider, char *token, int body_len, uint reserved) /* {{{ */ {
 	header->magic_num = htonl(YAR_PROTOCOL_MAGIC_NUM);

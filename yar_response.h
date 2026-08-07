@@ -36,8 +36,8 @@ const yar_data * yar_response_get_response(yar_response *response);
 int yar_response_get_status(yar_response *response);
 int yar_response_get_error(yar_response *response, const char **msg, uint *len);
 
-int yar_response_pack(yar_response *response, struct _yar_payload *payload, int extra_bytes);
-int yar_response_unpack(yar_response *response, char *payload, uint len, int extra_bytes);
+int yar_response_pack(yar_response *response, struct _yar_payload *payload, int extra_bytes, yar_packager_type type);
+int yar_response_unpack(yar_response *response, char *payload, uint len, int extra_bytes, yar_packager_type type);
 void yar_response_free(yar_response *response);
 
 #endif

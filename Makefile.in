@@ -133,7 +133,8 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libyar_la_LIBADD =
 am_libyar_la_OBJECTS = yar_server.lo yar_client.lo yar_response.lo \
-	yar_request.lo yar_pack.lo yar_protocol.lo yar_log.lo
+	yar_request.lo yar_pack.lo yar_msgpack.lo yar_protocol.lo \
+	yar_json.lo yar_log.lo
 libyar_la_OBJECTS = $(am_libyar_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -261,6 +262,7 @@ LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
+JSON_LIBS = @JSON_LIBS@
 LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
@@ -344,9 +346,9 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 lib_LTLIBRARIES = libyar.la
-libyar_la_SOURCES = yar_server.c yar_client.c yar_response.c yar_request.c yar_pack.c yar_protocol.c yar_log.c
-libyar_la_LDFLAGS = -levent -lmsgpackc
-include_HEADERS = yar.h yar_common.h yar_server.h yar_client.h yar_response.h yar_request.h yar_pack.h yar_protocol.h yar_log.h
+libyar_la_SOURCES = yar_server.c yar_client.c yar_response.c yar_request.c yar_pack.c yar_msgpack.c yar_protocol.c yar_json.c yar_log.c
+libyar_la_LDFLAGS = -levent -lmsgpackc $(JSON_LIBS)
+include_HEADERS = yar.h yar_common.h yar_server.h yar_client.h yar_response.h yar_request.h yar_pack.h yar_msgpack.h yar_protocol.h yar_json.h yar_log.h
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -446,7 +448,9 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/yar_client.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/yar_json.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/yar_log.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/yar_msgpack.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/yar_pack.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/yar_protocol.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/yar_request.Plo@am__quote@
@@ -733,7 +737,7 @@ check: check-am test
 # TEST_ARGS is forwarded to run_all.sh, pass a php binary to enable the
 # PHP interop suite: make test TEST_ARGS="--php /path/to/php"
 test: all
-	$(MAKE) -C tests EXTRA_CFLAGS="$(CFLAGS)" EXTRA_LDFLAGS="$(LDFLAGS)"
+	$(MAKE) -C tests EXTRA_CFLAGS="$(CFLAGS)" EXTRA_LDFLAGS="$(LDFLAGS)" EXTRA_LIBS="$(JSON_LIBS)"
 	sh tests/run_all.sh $(TEST_ARGS)
 all-am: Makefile $(LTLIBRARIES) $(HEADERS) config.h
 installdirs:

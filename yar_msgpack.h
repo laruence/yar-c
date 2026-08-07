@@ -16,34 +16,17 @@
  *    limitations under the License.
  */
 
-#ifndef YAR_PROTOCOL_H
-#define YAR_PROTOCOL_H
+#ifndef YAR_MSGPACK_H
+#define YAR_MSGPACK_H
 
-#define YAR_PROTOCOL_PERSISTENT	0x1
-#define YAR_PROTOCOL_PING		0x2
-#define YAR_PROTOCOL_LIST		0x4
+#include "yar_pack.h"
 
-/* keep in sync with MAX_BODY_LEN in the PHP yar socket transport */
-#define YAR_MAX_BODY_SIZE		(1024 * 1024 * 10) /* 10 M */
+/* msgpack codec over the yar_data value tree */
+int yar_msgpack_encode(const yar_data *data, yar_payload *out);
+yar_data * yar_msgpack_decode(const char *data, uint len);
 
-#define YAR_PROTOCOL_MAGIC_NUM  0x80DFEC60
-typedef struct _yar_header {
-    unsigned int   id;
-    unsigned short version;
-    unsigned int   magic_num;
-    unsigned int   reserved;
-    unsigned char  provider[32];
-    unsigned char  token[32];
-    unsigned int   body_len; 
-} __attribute__ ((packed)) yar_header;
-
-extern char YAR_PACKAGER[8];
-extern char YAR_PACKAGER_JSON_TAG[8];
-
-
-void yar_protocol_render(yar_header *header, uint id, char *provider, char *token, int body_len, uint reserved);
-int yar_protocol_parse(yar_header *header);
 #endif
+
 /*
  * Local variables:
  * tab-width: 4

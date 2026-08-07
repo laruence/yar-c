@@ -749,7 +749,8 @@ PACKAGE_VERSION
 PACKAGE_TARNAME
 PACKAGE_NAME
 PATH_SEPARATOR
-SHELL'
+SHELL
+JSON_LIBS'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
@@ -765,6 +766,7 @@ with_sysroot
 enable_libtool_lock
 with_event
 with_msgpack
+with_cjson
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1430,6 +1432,7 @@ Optional Packages:
                           compiler's sysroot if not specified).
   --with-event=DIR  Path to event installation dir
   --with-msgpack=DIR  Path to msgpack installation dir
+  --with-cjson=DIR  Path to cjson installation dir
 
 Some influential environment variables:
   CC          C compiler command
@@ -11998,6 +12001,96 @@ _ACEOF
 
 else
    as_fn_error $? "check for msgpack_uppacker_init in msgpack failed" "$LINENO" 5
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for cjson" >&5
+$as_echo_n "checking for cjson... " >&6; }
+
+# Check whether --with-cjson was given.
+if test "${with_cjson+set}" = set; then :
+  withval=$with_cjson; CJSON_DIR=$withval
+else
+  CJSON_DIR="no"
+fi
+
+
+if test "$CJSON_DIR" = "no"; then
+    for i in /usr /usr/local /opt/local /opt/homebrew; do
+        if test -r $i"/include/cjson/cJSON.h"; then
+            CJSON_DIR=$i
+            CJSON_HEADER=$i"/include/"
+            CJSON_LIBRARY=$i"/lib/"
+            CFLAGS=$CFLAGS" -I${CJSON_HEADER}"
+            LDFLAGS=$LDFLAGS" -Wl,-rpath,${CJSON_LIBRARY} -L${CJSON_LIBRARY}"
+            break
+        fi
+    done
+else
+    if test -r $CJSON_DIR"/include/cjson/cJSON.h"; then
+        CJSON_HEADER=$CJSON_DIR"/include/"
+        CJSON_LIBRARY=$CJSON_DIR"/lib/"
+        CFLAGS=$CFLAGS" -I${CJSON_HEADER}"
+        LDFLAGS=$LDFLAGS" -Wl,-rpath,${CJSON_LIBRARY} -L${CJSON_LIBRARY}"
+    else
+        as_fn_error $? "could not find cjson in '$CJSON_DIR'" "$LINENO" 5
+    fi
+fi
+
+JSON_LIBS=""
+if test -n "$CJSON_HEADER"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for cJSON_ParseWithLengthOpts in -lcjson" >&5
+$as_echo_n "checking for cJSON_ParseWithLengthOpts in -lcjson... " >&6; }
+if ${ac_cv_lib_cjson_cJSON_ParseWithLengthOpts+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcjson  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char cJSON_ParseWithLengthOpts ();
+int
+main ()
+{
+return cJSON_ParseWithLengthOpts ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_cjson_cJSON_ParseWithLengthOpts=yes
+else
+  ac_cv_lib_cjson_cJSON_ParseWithLengthOpts=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_cjson_cJSON_ParseWithLengthOpts" >&5
+$as_echo "$ac_cv_lib_cjson_cJSON_ParseWithLengthOpts" >&6; }
+if test "x$ac_cv_lib_cjson_cJSON_ParseWithLengthOpts" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_JSON 1
+_ACEOF
+
+  JSON_LIBS="-lcjson"
+  LIBS="-lcjson $LIBS"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: found in $CJSON_DIR" >&5
+$as_echo "found in $CJSON_DIR" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: header found but library check failed, JSON packager disabled" >&5
+$as_echo "header found but library check failed, JSON packager disabled" >&6; }
+fi
+
+else
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: not found, JSON packager disabled" >&5
+$as_echo "not found, JSON packager disabled" >&6; }
 fi
 
 

@@ -19,6 +19,8 @@
 #ifndef YAR_PACK_H
 #define YAR_PACK_H
 
+#include <stdio.h>
+
 #ifndef ulong
 #define ulong unsigned long
 #endif
@@ -34,6 +36,12 @@ typedef enum _yar_data_type {
 	YAR_DATA_ARRAY
 } yar_data_type;
 
+/* wire formats the value tree can be encoded/decoded as */
+typedef enum _yar_packager_type {
+	YAR_PACKAGER_MSGPACK = 0,
+	YAR_PACKAGER_JSON = 1
+} yar_packager_type;
+
 typedef struct _yar_packager yar_packager;
 typedef struct _yar_unpackager yar_unpackager;
 typedef struct _yar_unpack_iterator yar_unpack_iterator;
@@ -48,7 +56,7 @@ typedef struct _yar_data yar_data;
 #define yar_pack_start_map(size) yar_pack_start(YAR_DATA_MAP, size)
 #define yar_pack_start_array(size) yar_pack_start(YAR_DATA_ARRAY, size)
 
-/* serialization */
+/* serialization (build a value tree) */
 yar_packager * yar_pack_start(yar_data_type type, uint size);
 int yar_pack_push_array(yar_packager *packager, uint size);
 int yar_pack_push_map(yar_packager *packager, uint size);
@@ -60,12 +68,31 @@ int yar_pack_push_double(yar_packager *packager, double num);
 int yar_pack_push_string(yar_packager *packager, char *str, uint len);
 int yar_pack_push_data(yar_packager *packager, const yar_data *data);
 int yar_pack_push_packager(yar_packager *packager, yar_packager *data);
+/* msgpack-encoded; allocates payload->data, caller frees */
 int yar_pack_to_string(yar_packager *packager, yar_payload *payload);
+/* encoded as the given wire format; allocates payload->data, caller frees */
+int yar_pack_encode(yar_packager *packager, yar_payload *payload, yar_packager_type type);
+/* detach and return the tree built so far (the packager keeps nothing) */
+yar_data * yar_pack_take_root(yar_packager *packager);
 void yar_pack_free(yar_packager *packager);
+
+/* value tree utilities */
+/* decode wire bytes into an owned value tree (NULL on failure) */
+yar_data * yar_data_unpack(const char *data, uint len, yar_packager_type type);
+/* encode a value tree into wire bytes (allocates out->data, caller frees) */
+int yar_data_pack(const yar_data *data, yar_payload *out, yar_packager_type type);
+/* deep copy (owned) */
+yar_data * yar_data_dup(const yar_data *data);
+/* release owned contents and zero the node, does not free the node itself */
+void yar_data_destroy(yar_data *data);
+/* release owned contents and free the node */
+void yar_data_free(yar_data *data);
+/* whether a wire format is usable in this build */
+int yar_packager_available(yar_packager_type type);
 
 /* deserialization */
 void yar_unpack_free(yar_unpackager *unpk);
-yar_unpackager * yar_unpack_init(char *data, uint len);
+yar_unpackager * yar_unpack_init(char *data, uint len, yar_packager_type type);
 const yar_data * yar_unpack_unpack(yar_unpackager *unpk);
 
 yar_data_type yar_unpack_data_type(const yar_data *data, uint *size);
