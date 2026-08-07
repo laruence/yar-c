@@ -18,7 +18,7 @@ jobs:
         php: ['8.1', '8.3', '8.5']
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # The generated autotools files are checked in; refresh their mtimes so
       # make does not try to regenerate them (the pinned automake/autoconf
@@ -76,7 +76,7 @@ jobs:
 
       - name: Upload test logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-logs-${{ matrix.cc }}-php-${{ matrix.php }}
           path: tests/logs/
@@ -91,7 +91,7 @@ jobs:
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # see the "Fix autotools timestamps" step in the test job
       - name: Fix autotools timestamps
@@ -129,7 +129,7 @@ jobs:
 
       - name: Upload test logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: asan-logs
           path: tests/logs/
