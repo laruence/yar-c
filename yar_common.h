@@ -20,6 +20,12 @@
 #define YAR_COMMON_H
 
 #include <fcntl.h> 		/* for fcntl */
+#include <sys/types.h>
+
+/* BSD/macOS <sys/types.h> provides `uint`, glibc does not */
+#if defined(__linux__) && !defined(uint)
+typedef unsigned int uint;
+#endif
 
 #define YAR_OKEY    0x0
 #define YAR_DEBUG   0x1
@@ -40,6 +46,20 @@ static inline int yar_set_non_blocking(int fd) {
 		return 0;
 	}
 	return 1;
+}
+
+/* On some platforms (macOS) gethostbyname() returns a packed static buffer
+ * where even the hostent members (and the address entries) are misaligned
+ * for their own types. Loading them directly is UB, and memcpy() is not a
+ * safe replacement either because the compiler may lower a constant-sized
+ * memcpy() back into aligned loads, so copy byte-by-byte through volatile,
+ * which the compiler is not allowed to merge or widen. */
+static inline void yar_copy_unaligned(void *dst, const void *src, uint n) {
+	const volatile unsigned char *s = (const volatile unsigned char *)src;
+	unsigned char *d = (unsigned char *)dst;
+	while (n-- > 0) {
+		*d++ = *s++;
+	}
 }
 
 #endif

@@ -117,7 +117,8 @@ int yar_response_unpack(yar_response *response, char *payload, uint len, int ext
 					response->id = id;
 				}
 			} else if (strncmp(key, "s", sizeof("s") - 1) == 0) {
-				if (yar_unpack_data_type(obj, &size) == YAR_DATA_ULONG) {
+				yar_data_type type = yar_unpack_data_type(obj, &size);
+				if (type == YAR_DATA_ULONG || type == YAR_DATA_LONG) {
 					long status;
 					yar_unpack_data_long(obj, &status);
 					response->status = status;

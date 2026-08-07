@@ -258,7 +258,15 @@ int yar_unpack_data_value(const yar_data *data, void *arg) /* {{{ */ {
 /* }}} */
 
 int yar_unpack_data_null(const yar_data *data, int *val) /* {{{ */ {
-	return yar_unpack_data_value(data, &val);
+	uint size;
+
+	if (yar_unpack_data_type(data, &size) != YAR_DATA_NULL) {
+		return 0;
+	}
+	if (val) {
+		*val = 0;
+	}
+	return YAR_DATA_NULL;
 }
 /* }}} */
 

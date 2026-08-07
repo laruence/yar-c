@@ -95,7 +95,7 @@ Run as a single process (no daemon, no pre-fork). Useful during development and 
 
 #### YAR_READ_TIMEOUT
 
-Read timeout for requests, in seconds. Default is `5`.
+Read timeout for requests, in seconds. Default is `3`.
 
 #### YAR_PARENT_INIT & YAR_CUSTOM_DATA
 

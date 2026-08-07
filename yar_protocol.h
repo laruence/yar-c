@@ -23,6 +23,9 @@
 #define YAR_PROTOCOL_PING		0x2
 #define YAR_PROTOCOL_LIST		0x4
 
+/* keep in sync with MAX_BODY_LEN in the PHP yar socket transport */
+#define YAR_MAX_BODY_SIZE		(1024 * 1024 * 10) /* 10 M */
+
 #define YAR_PROTOCOL_MAGIC_NUM  0x80DFEC60
 typedef struct _yar_header {
     unsigned int   id;

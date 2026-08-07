@@ -11836,12 +11836,14 @@ else
 fi
 
 
-if test $EVENT_DIR == "no"; then
-    for i in /usr /usr/local /opt/local; do
+if test "$EVENT_DIR" = "no"; then
+    for i in /usr /usr/local /opt/local /opt/homebrew; do
         if test -r $i"/include/event.h"; then
             EVENT_DIR=$i
             EVENT_HEADER=$i"/include/"
             EVENT_LIBRARY=$i"/lib/"
+            CFLAGS=$CFLAGS" -I${EVENT_HEADER}"
+            LDFLAGS=$LDFLAGS" -Wl,-rpath,${EVENT_LIBRARY} -L${EVENT_LIBRARY}"
             break
         fi
     done
@@ -11851,7 +11853,6 @@ else
         EVENT_LIBRARY=$EVENT_DIR"/lib/"
         CFLAGS=$CFLAGS" -I${EVENT_HEADER}"
         LDFLAGS=$LDFLAGS" -Wl,-rpath,${EVENT_LIBRARY} -L${EVENT_LIBRARY}"
-        break
     else
         as_fn_error $? "could not find event in '$EVENT_DIR'" "$LINENO" 5
     fi
@@ -11923,8 +11924,8 @@ else
 fi
 
 
-if test $MSGPACK_DIR == "no"; then
-    for i in /usr /usr/local /opt/local; do
+if test "$MSGPACK_DIR" = "no"; then
+    for i in /usr /usr/local /opt/local /opt/homebrew; do
         if test -r $i"/include/msgpack.h"; then
             MSGPACK_DIR=$i
             MSGPACK_HEADER=$i"/include/"

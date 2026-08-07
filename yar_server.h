@@ -51,7 +51,7 @@ int yar_server_init(char *hostname);
 int yar_server_set_opt(yar_server_opt opt, void *val);
 const void * yar_server_get_opt(yar_server_opt opt);
 int yar_server_register_handler(yar_server_handler *handlers);
-void yar_server_shutdown();
+void yar_server_shutdown(int signo);
 void yar_server_destroy();
 int yar_server_run();
 

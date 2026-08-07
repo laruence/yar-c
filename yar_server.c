@@ -60,6 +60,9 @@ typedef struct _yar_request_context {
 	ulong start_time;
 	char *remote_addr;
 	long remote_port;
+	char header_buf[sizeof(yar_header)];
+	uint header_read;
+	uint write_registered; /* ev_write has been event_set()/event_add()ed */
 } yar_request_context;
 
 struct _yar_server {
@@ -84,7 +87,7 @@ struct _yar_server {
 	yar_init child_init;
 } *server;
 
-ulong inline yar_get_microsec() /* {{{ */ {
+static inline ulong yar_get_microsec(void) /* {{{ */ {
 	struct timeval tv;
 	if (gettimeofday(&tv, (struct timezone *)NULL) == 0) {
 		return (tv.tv_sec * 1000000) + tv.tv_usec;
@@ -187,25 +190,41 @@ static int yar_record_pid(char *pfile) /* {{{ */ {
 } /* }}} */
 
 static int yar_server_start_listening() /* {{{ */ {
-	struct sockaddr sa;
+	struct sockaddr_storage sa;
+	socklen_t sa_len = 0;
+	bzero(&sa, sizeof(sa));
 	char addrstr[INET_ADDRSTRLEN];
 	int port = 0, sockfd = 0;
 
 	char *hostname = server->hostname;
 
-	if (strncasecmp(hostname, "http://", sizeof("http://")) == 0 
+	/* accept the PHP-style tcp:// scheme so one URI works for both clients */
+	if (strncasecmp(hostname, "tcp://", sizeof("tcp://") - 1) == 0) {
+		hostname += sizeof("tcp://") - 1;
+	}
+
+	if (strncasecmp(hostname, "http://", sizeof("http://")) == 0
 			|| strncasecmp(hostname, "https://", sizeof("https://")) == 0) {
 		alog(YAR_ERROR, "Http server doesn't support yet");
 		return 0;
 	} else if (hostname[0] == '/') {
 		struct sockaddr_un *usa;
 		usa = (struct sockaddr_un *)&sa;
+		if (strlen(hostname) >= sizeof(usa->sun_path)) {
+			alog(YAR_ERROR, "Unix socket path too long '%s'", hostname);
+			return 0;
+		}
 		unlink(hostname);
-		sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+		if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+			alog(YAR_ERROR, "Failed to create a socket '%s'", strerror(errno));
+			return 0;
+		}
 		usa->sun_family = AF_UNIX;
 		memcpy(usa->sun_path, hostname, strlen(hostname) + 1);
+		sa_len = SUN_LEN(usa);
 	} else {
 		char *delim, *p, host[512];
+		int addrtype;
 		struct hostent *hptr;
 		struct sockaddr_in *isa;
 		if ((delim = strchr(hostname, ':'))) {
@@ -222,16 +241,25 @@ static int yar_server_start_listening() /* {{{ */ {
 		}
 
 		if ((hptr = gethostbyname(host)) == NULL) {
-			alog(YAR_ERROR, "Failed to resolve host name '%s'", strerror(errno));
+			alog(YAR_ERROR, "Failed to resolve host name '%s'", host);
 			return 0;
 		}
 
-		p = hptr->h_addr;
+		{
+			/* see yar_copy_unaligned(): the hostent members are misaligned on
+			 * some platforms, copy them out byte-wise instead of loading them */
+			char **addr_list;
+			char *addr;
+			yar_copy_unaligned(&addrtype, &hptr->h_addrtype, sizeof(addrtype));
+			yar_copy_unaligned(&addr_list, &hptr->h_addr_list, sizeof(addr_list));
+			yar_copy_unaligned(&addr, addr_list, sizeof(addr));
+			p = addr;
+		}
 		if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 			alog(YAR_ERROR, "Failed to create a socket '%s'", strerror(errno));
 			return 0;
 		}
-		switch (hptr->h_addrtype) {
+		switch (addrtype) {
 			case AF_INET:
 				{
 					int val = 1;
@@ -243,10 +271,11 @@ static int yar_server_start_listening() /* {{{ */ {
 					memcpy(&isa->sin_addr, p, sizeof(struct in_addr));
 
 					setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char*)&val, sizeof(val));
+					sa_len = sizeof(struct sockaddr_in);
 				}
 				break;
 			default:
-				alog(YAR_ERROR, "Unknown address type %d", hptr->h_addrtype);
+				alog(YAR_ERROR, "Unknown address type %d", addrtype);
 				close(sockfd);
 				return 0;
 		}
@@ -254,11 +283,9 @@ static int yar_server_start_listening() /* {{{ */ {
 		inet_ntop(isa->sin_family, p, addrstr, sizeof(addrstr));
 	}
 
-	if (bind(sockfd, (const struct sockaddr*)&sa, sizeof(struct sockaddr)) == -1) {
+	if (bind(sockfd, (const struct sockaddr*)&sa, sa_len) == -1) {
 		alog(YAR_ERROR, "Failed to bind socket '%s'", strerror(errno));
-		if (errno != EINVAL && errno != EADDRINUSE) {
-			close(sockfd);
-		}
+		close(sockfd);
 		return 0;
 	}
 
@@ -408,12 +435,14 @@ static inline yar_server_handler * yar_server_find_handler(char *name, int len) 
 
 static void yar_server_reset(yar_request_context *ctx) /* {{{ */ {
 	ctx->header = NULL;
+	ctx->header_read = 0;
 	ctx->bytes_sent = 0;
 	ctx->start_time = yar_get_microsec();
 	yar_request_free(ctx->request);
 	yar_response_free(ctx->response);
 	memset(ctx->request, 0, sizeof(yar_request));
 	memset(ctx->response, 0, sizeof(yar_response));
+	ctx->write_registered = 0;
 	event_del(&ctx->ev_write);
 	event_add(&ctx->ev_read, &ctx->timeout);
 }
@@ -422,7 +451,12 @@ static void yar_server_reset(yar_request_context *ctx) /* {{{ */ {
 static void yar_server_close_connection(int fd, yar_request_context *ctx) /* {{{ */ {
 	close(fd);
 	event_del(&ctx->ev_read);
-	event_del(&ctx->ev_write);
+	/* ev_write is only initialized once the request has been fully read;
+	 * event_del() on an event that never reached event_set() makes libevent
+	 * complain, and it happens for connections closed while still reading */
+	if (ctx->write_registered) {
+		event_del(&ctx->ev_write);
+	}
 	yar_request_free(ctx->request);
 	yar_response_free(ctx->response);
 	free(ctx);
@@ -443,6 +477,12 @@ static void yar_server_on_write(int fd, short ev, void *arg) /* {{{ */ {
 				ctx->bytes_sent += bytes_sent;
 			}
 		} while (bytes_sent == -1 && errno == EINTR);
+
+		if (bytes_sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+			yar_server_log_error(ctx, "Failed to send response '%s'", strerror(errno));
+			yar_server_close_connection(fd, ctx);
+			return;
+		}
 
 		if (ctx->bytes_sent < response->payload.size) {
 			return;
@@ -468,34 +508,57 @@ static void yar_server_on_read(int fd, short ev, void *arg) /* {{{ */ {
 	} else {
 		int read_bytes;
 		if (!ctx->header) {
-			char buf[sizeof(yar_header)];
-			ctx->start_time = yar_get_microsec();
+			/* the header may arrive in several segments, accumulate it */
+			if (!ctx->header_read) {
+				ctx->start_time = yar_get_microsec();
+			}
 			do {
-				read_bytes = recv(fd, buf, sizeof(buf), 0);
+				read_bytes = recv(fd, ctx->header_buf + ctx->header_read, sizeof(yar_header) - ctx->header_read, 0);
 			} while (read_bytes == -1 && errno == EINTR);
 
 			if (read_bytes == 0) {
 				yar_server_close_connection(fd, ctx);
 				return;
-			} else if (read_bytes < 0) {
+			} else if (read_bytes == -1) {
+				if (errno == EAGAIN || errno == EWOULDBLOCK) {
+					return;
+				}
 				yar_server_log_error(ctx, "Failed read request '%s'", strerror(errno));
 				yar_server_close_connection(fd, ctx);
 				return;
 			}
-		
-			if (!yar_protocol_parse((yar_header *)buf)) {
-				yar_server_log_error(ctx, "Failed to parse request header, maybe not sent by a Yar client");
+
+			ctx->header_read += read_bytes;
+			if (ctx->header_read < sizeof(yar_header)) {
+				/* there are more header bytes to read */
 				return;
 			}
 
-			request->size = ((yar_header*)buf)->body_len + sizeof(yar_header);
-			request->body = malloc(request->size);
-			memcpy(request->body, buf, read_bytes);
-			request->blen = read_bytes;
-			ctx->header = (yar_header *)request->body;
-			if (request->blen < request->size) {
+			if (!yar_protocol_parse((yar_header *)ctx->header_buf)) {
+				yar_server_log_error(ctx, "Failed to parse request header, maybe not sent by a Yar client");
+				yar_server_close_connection(fd, ctx);
 				return;
 			}
+
+			{
+				unsigned int body_len = ((yar_header *)ctx->header_buf)->body_len;
+				if (body_len > YAR_MAX_BODY_SIZE) {
+					yar_server_log_error(ctx, "Request body too large %u", body_len);
+					yar_server_close_connection(fd, ctx);
+					return;
+				}
+				request->size = body_len + sizeof(yar_header);
+			}
+
+			request->body = malloc(request->size);
+			if (!request->body) {
+				yar_server_log_error(ctx, "Failed to allocate request buffer");
+				yar_server_close_connection(fd, ctx);
+				return;
+			}
+			memcpy(request->body, ctx->header_buf, sizeof(yar_header));
+			request->blen = sizeof(yar_header);
+			ctx->header = (yar_header *)request->body;
 		}
 
 		if (request->blen < request->size) {
@@ -505,7 +568,10 @@ static void yar_server_on_read(int fd, short ev, void *arg) /* {{{ */ {
 			if (read_bytes == 0) {
 				yar_server_close_connection(fd, ctx);
 				return;
-			} else if (read_bytes < 0) {
+			} else if (read_bytes == -1) {
+				if (errno == EAGAIN || errno == EWOULDBLOCK) {
+					return;
+				}
 				yar_server_log_error(ctx, "Failed read request '%s'", strerror(errno));
 				yar_server_close_connection(fd, ctx);
 				return;
@@ -545,6 +611,7 @@ static void yar_server_on_read(int fd, short ev, void *arg) /* {{{ */ {
 			memcpy(response->payload.data + sizeof(yar_header), YAR_PACKAGER, sizeof(YAR_PACKAGER));
 			event_set(&ctx->ev_write, fd, EV_WRITE|EV_PERSIST, yar_server_on_write, ctx);
 			event_add(&ctx->ev_write, &ctx->timeout);
+			ctx->write_registered = 1;
 			event_del(&ctx->ev_read);
 			return;
 		}
@@ -554,14 +621,16 @@ static void yar_server_on_read(int fd, short ev, void *arg) /* {{{ */ {
 
 static void yar_server_on_accept(int fd, short ev, void *arg) /* {{{ */ {
 	int client_fd;
-	struct sockaddr_in client_addr;
-	socklen_t client_len = sizeof(struct sockaddr_in);
+	struct sockaddr_storage client_addr;
+	socklen_t client_len = sizeof(client_addr);
 	yar_request_context *ctx;
 
 	client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
 
 	if (client_fd == -1) {
-		alog(YAR_WARNING, "Thundering herd");
+		if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR && errno != ECONNABORTED) {
+			alog(YAR_WARNING, "Accept failed '%s'", strerror(errno));
+		}
 		return;
 	}
 
@@ -573,9 +642,15 @@ static void yar_server_on_accept(int fd, short ev, void *arg) /* {{{ */ {
 		return;
 	}
 
-	if (getpeername(client_fd, (struct sockaddr *)&client_addr, &client_len) == 0) {
+	client_len = sizeof(client_addr);
+	if (getpeername(client_fd, (struct sockaddr *)&client_addr, &client_len) == 0
+			&& client_addr.ss_family == AF_INET) {
 		ctx->remote_addr = inet_ntoa(((struct sockaddr_in *)&client_addr)->sin_addr);
 		ctx->remote_port = ntohs(((struct sockaddr_in *)&client_addr)->sin_port);
+	} else {
+		/* unix domain socket peers (or failed getpeername) have no ip:port */
+		ctx->remote_addr = "unix";
+		ctx->remote_port = 0;
 	}
 
 	ctx->request = (yar_request *)((char *)ctx + sizeof(yar_request_context));

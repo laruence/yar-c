@@ -1,4 +1,5 @@
 Make*
+!tests/Makefile
 .deps
 .libs
 acinclude.m4
@@ -29,3 +30,7 @@ run-tests.php
 stamp-h1
 example/server
 example/client
+tests/yar_test_server
+tests/yar_test_client
+tests/logs/
+tests/*.dSYM/

@@ -1,0 +1,121 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    name: ${{ matrix.cc }} / php-${{ matrix.php }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+        php: ['8.1', '8.3', '8.5']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libevent-dev
+
+      - name: Build and install msgpack-c
+        run: |
+          curl -fsSL -o msgpack.tar.gz \
+            https://github.com/msgpack/msgpack-c/releases/download/cpp-3.2.0/msgpack-3.2.0.tar.gz
+          tar xzf msgpack.tar.gz
+          cd msgpack-3.2.0
+          cmake -DMSGPACK_BUILD_EXAMPLES=OFF -DMSGPACK_BUILD_TESTS=OFF .
+          make
+          sudo make install
+          sudo ldconfig
+
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: msgpack
+          coverage: none
+
+      # The yar extension is built from master (not pecl stable) so it always
+      # supports the PHP versions in the matrix; --enable-msgpack is required
+      # for the msgpack packager (it is off by default in config.m4).
+      - name: Build and install the yar extension (master)
+        run: |
+          git clone --depth 1 https://github.com/laruence/yar.git /tmp/php-yar
+          cd /tmp/php-yar
+          phpize
+          ./configure --enable-msgpack
+          make -j"$(nproc)"
+          sudo make install
+          scan_dir=$(php --ini | sed -n 's/^Scan for additional .ini files in: //p')
+          echo "extension=yar.so" | sudo tee "$scan_dir/yar.ini" > /dev/null
+          php -r 'exit((int) !(extension_loaded("yar") && extension_loaded("msgpack")));'
+
+      - name: Build yar-c
+        run: |
+          ./configure CC=${{ matrix.cc }}
+          make
+          make -C tests CC=${{ matrix.cc }}
+
+      - name: Run test suites
+        run: sh tests/run_all.sh
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.cc }}-php-${{ matrix.php }}
+          path: tests/logs/
+
+  asan:
+    name: clang + ASan/UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      SAN_FLAGS: -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -O1 -g
+      ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libevent-dev
+
+      - name: Build and install msgpack-c
+        run: |
+          curl -fsSL -o msgpack.tar.gz \
+            https://github.com/msgpack/msgpack-c/releases/download/cpp-3.2.0/msgpack-3.2.0.tar.gz
+          tar xzf msgpack.tar.gz
+          cd msgpack-3.2.0
+          cmake -DMSGPACK_BUILD_EXAMPLES=OFF -DMSGPACK_BUILD_TESTS=OFF .
+          make
+          sudo make install
+          sudo ldconfig
+
+      # Static-only build keeps sanitizer flags out of libtool's shared
+      # link dance; the test binaries link .libs/libyar.a directly.
+      - name: Build yar-c with sanitizers
+        run: |
+          ./configure --disable-shared CC=clang CFLAGS="$SAN_FLAGS" LDFLAGS="$SAN_FLAGS"
+          make
+          make -C tests CC=clang EXTRA_CFLAGS="$SAN_FLAGS" EXTRA_LDFLAGS="$SAN_FLAGS"
+
+      - name: Run C test suite
+        run: sh tests/run_all.sh --no-php
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asan-logs
+          path: tests/logs/

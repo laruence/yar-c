@@ -18,12 +18,14 @@ AC_ARG_WITH(event,
             [EVENT_DIR=$withval],
             [EVENT_DIR="no"])
 
-if test $EVENT_DIR == "no"; then
-    for i in /usr /usr/local /opt/local; do
+if test "$EVENT_DIR" = "no"; then
+    for i in /usr /usr/local /opt/local /opt/homebrew; do
         if test -r $i"/include/event.h"; then
             EVENT_DIR=$i
             EVENT_HEADER=$i"/include/"
             EVENT_LIBRARY=$i"/lib/"
+            CFLAGS=$CFLAGS" -I${EVENT_HEADER}"
+            LDFLAGS=$LDFLAGS" -Wl,-rpath,${EVENT_LIBRARY} -L${EVENT_LIBRARY}"
             break
         fi
     done
@@ -33,8 +35,7 @@ else
         EVENT_LIBRARY=$EVENT_DIR"/lib/"
         CFLAGS=$CFLAGS" -I${EVENT_HEADER}"
         LDFLAGS=$LDFLAGS" -Wl,-rpath,${EVENT_LIBRARY} -L${EVENT_LIBRARY}"
-        break
-    else 
+    else
         AC_MSG_ERROR([could not find event in '$EVENT_DIR'])
     fi
 fi
@@ -53,8 +54,8 @@ AC_ARG_WITH(msgpack,
             [MSGPACK_DIR=$withval],
             [MSGPACK_DIR="no"])
 
-if test $MSGPACK_DIR == "no"; then
-    for i in /usr /usr/local /opt/local; do
+if test "$MSGPACK_DIR" = "no"; then
+    for i in /usr /usr/local /opt/local /opt/homebrew; do
         if test -r $i"/include/msgpack.h"; then
             MSGPACK_DIR=$i
             MSGPACK_HEADER=$i"/include/"

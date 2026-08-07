@@ -30,10 +30,14 @@ void yar_protocol_render(yar_header *header, uint id, char *provider, char *toke
 	header->body_len = htonl(body_len);
 	header->reserved = htonl(reserved);
 	if (provider) {
-		memcpy(header->provider, provider, 16);
+		/* the fields are 32 bytes wide; copy at most that, zero-padding short
+		 * names instead of reading past the end of the source string */
+		strncpy((char *)header->provider, provider, sizeof(header->provider));
+		header->provider[sizeof(header->provider) - 1] = '\0';
 	}
 	if (token) {
-		memcpy(header->token, token, 16);
+		strncpy((char *)header->token, token, sizeof(header->token));
+		header->token[sizeof(header->token) - 1] = '\0';
 	}
 	return;
 } /* }}} */

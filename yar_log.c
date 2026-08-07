@@ -76,13 +76,15 @@ int yar_logger_setopt(yar_logger_opt opt, void *value) /* {{{ */ {
 /* }}} */
 
 void yar_logger_destroy() /* {{{ */ {
+	if (!logger) {
+		return;
+	}
 	if (logger->fp) {
 		if (logger->pipe) {
 			pclose(logger->fp);
 		} else {
 			fclose(logger->fp);
 		}
-	} else {
 	}
 	free(logger);
 	logger = NULL;
