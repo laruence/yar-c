@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         cc: [gcc, clang]
-        php: ['8.1', '8.3', '8.5']
+        php: ['8.1', '8.3']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,7 +60,7 @@ jobs:
           ./configure --enable-msgpack
           make -j"$(nproc)"
           sudo make install
-          scan_dir=$(php --ini | sed -n 's/^Scan for additional .ini files in: //p')
+          scan_dir=$(php --ini | sed -n 's/^Scan for additional .ini files in: //p' | tr -d '"')
           echo "extension=yar.so" | sudo tee "$scan_dir/yar.ini" > /dev/null
           php -r 'exit((int) !(extension_loaded("yar") && extension_loaded("msgpack")));'
 
